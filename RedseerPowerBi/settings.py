@@ -87,7 +87,16 @@ CORS_ALLOW_ALL_ORIGINS = True
 #     }
 # }
 
-
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'testing',
+        'USER': 'redroot',
+        'PASSWORD': 'seer#123',
+        'HOST': '127.0.0.1',
+        'PORT': '3306',
+    }
+}
 
 
 # Password validation
@@ -132,4 +141,10 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_USE_TLS = True
+EMAIL_PORT = 587
+EMAIL_HOST_USER = 'shahzmaalif@gmail.com'
+EMAIL_HOST_PASSWORD = 'eteejcmriatqnzdw'
+AUTH_USER_MODEL = 'LoginAPI.User'
