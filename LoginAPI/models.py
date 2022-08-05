@@ -33,6 +33,9 @@ class ReportModel(models.Model):
     id = models.AutoField(primary_key=True)
     report_name = models.CharField(max_length=100)
 
+    def __str__(self):
+        return self.report_name
+
 # will not use arrayfields as they are suupported by postgres only. Report url is embed url. report id  
 # needed in report page . drop dataset id. to get emebed token we need to use report id.
 class ReportAccessModel(models.Model):
@@ -49,6 +52,9 @@ class ReportAccessModel(models.Model):
     # report_url = models.CharField(max_length=600)
     # embed_url = models.CharField(max_length=600)
     
+    def __str__(self):
+        return self.email
+
     class Meta:
         managed = True
         db_table = 'ReportAccessModel'
@@ -68,20 +74,20 @@ class CompanyDomainModel(models.Model):
 class Player(models.Model):
     player_id = models.AutoField(primary_key=True, auto_created=True)
     player_name = models.CharField(max_length=45)
-    industry_id = models.IntegerField(default=3) #is caklled industry
+    industry_id = models.IntegerField(default=3) #is called industry
 
     class Meta:
         managed = False
         db_table = 'player'
 
-# class ReportPlayerModel(models.Model):
-#     id = models.AutoField(primary_key=True)
-#     report = models.ForeignKey('ReportModel', on_delete=models.CASCADE)
-#     player = models.ForeignKey('Player', models.DO_NOTHING, blank=False, null=False)
+class ReportPlayerModel(models.Model):
+    id = models.AutoField(primary_key=True)
+    report = models.ForeignKey('ReportModel', on_delete=models.CASCADE)
+    player = models.ForeignKey('Player', on_delete=models.CASCADE)
     
-#     class Meta:
-#         managed = True
-#         db_table = 'ReportPlayerModel'
+    class Meta:
+        managed = True
+        db_table = 'ReportPlayerModel'
 
 class IconModel(models.Model):
     id = models.AutoField(primary_key=True)
@@ -103,6 +109,9 @@ class ReportPagesModel(MPTTModel):
     icon = models.ForeignKey('IconModel', on_delete=models.CASCADE)
     link = models.CharField(max_length=45)
     order = models.IntegerField(default=1, blank = True, null=True)
+
+    def __str__(self):
+        return self.page_name
 
     class Meta:
         managed = True

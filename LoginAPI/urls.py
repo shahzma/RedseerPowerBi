@@ -3,7 +3,8 @@ from rest_framework import routers
 from django.contrib import admin
 from django.urls import path
 from django.conf.urls import include
-from .views import LoginApi, UserViewSet, CompanyLCView, ReportAccessLCView, ReportAccessRUDView, ReportLCView,CompanyDomainLCView,MSAccessTokenAPI, PlayerLCView, ReportPageApi
+from .views import LoginApi, UserViewSet, CompanyLCView, ReportAccessLCView, ReportAccessRUDView, ReportLCView,CompanyDomainLCView,MSAccessTokenAPI, PlayerLCView, ReportPageApi\
+    ,ReportPlayerLCView, IconLCView
 
 
 router = routers.DefaultRouter()
@@ -45,6 +46,13 @@ player_urls = [
     path("", PlayerLCView.as_view(), name="lc"),
 ]
 
+reportPlayer_urls = [
+    path('', ReportPlayerLCView.as_view(), name = 'lc')
+]
+
+icon_urls = [
+    path('', IconLCView.as_view(), name = 'lc')
+]
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -55,5 +63,7 @@ urlpatterns = [
     path('company_domain/', include(companyDomainUrls), name='company_domain'),
     path("player/", include((player_urls, "player"), namespace="player")),
     path("MSAccessToken/", include(MSUrls), name='ms'),
-    path("PageReports/", include(ReportPageUrls), name='reportpages')
+    path("PageReports/", include(ReportPageUrls), name='reportpages'),
+    path('ReportPlayers/', include(reportPlayer_urls), name = 'reportplayer'),
+    path('icons/', include(icon_urls), name = 'icons'),
     ]
