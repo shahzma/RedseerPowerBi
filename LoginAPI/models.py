@@ -4,6 +4,10 @@ from phonenumber_field.modelfields import PhoneNumberField
 import datetime
 from django import db
 from mptt.models import MPTTModel, TreeForeignKey
+# from django.conf import settings
+# from django.contrib.sessions.models import Session
+# from django.contrib.auth import user_logged_in
+# from django.dispatch.dispatcher import receiver
 
 
 # Create your models here.
@@ -116,3 +120,22 @@ class ReportPagesModel(MPTTModel):
     class Meta:
         managed = True
         db_table = 'report_pages_model'
+
+# class UserSession(models.Model):
+#     user = models.ForeignKey(ßsettings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+#     session = models.OneToOneField(Session, on_delete=models.CASCADE)
+
+
+# @receiver(user_logged_in)
+# def remove_other_sessions(sender, user, request, **kwargs):
+#     # remove other sessions
+#     Session.objects.filter(usersession__user=user).delete()
+    
+#     # save current session
+#     request.session.save()
+
+#     # create a link from the user to the current session (for later removal)
+#     UserSession.objects.get_or_create(
+#         user=user,
+#         session_id=request.session.session_key
+#     )

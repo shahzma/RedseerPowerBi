@@ -1,4 +1,5 @@
-from os import access
+# from django.contrib.auth.signals import user_logged_in
+# from django.contrib.auth import authenticate, login, logout
 from django.http import JsonResponse
 from django.shortcuts import render
 from . import models, serializers
@@ -82,7 +83,6 @@ class LoginApi(CreateAPIView):
             company_obj = models.ClientModel.objects.filter(name = client_id)
             company_email = company_obj[0].company_email
             mail_status = send_mail(subject='Login OTP Redseer', message=f'Welcome Back User, Your One Time Password (OTP) for Benchmarks login is 【{OTP}】.Please DO NOT share this OTP with anyone.',from_email=settings.EMAIL_HOST_USER,recipient_list = [email], fail_silently=False)
-            # mail_status = send_mail(subject='Login OTP Redseer', message=f' Your verification code is 【{OTP}】. It is valid for 3 min .',from_email=settings.EMAIL_HOST_USER,recipient_list = [email], fail_silently=False)
             # message = twilio_client.messages.create(
             #             body=f'Your verification code is 【{OTP}】. It is valid for 3 min',
             #             from_='+19705577581',
@@ -93,7 +93,6 @@ class LoginApi(CreateAPIView):
             else:
                 return Response({'company_pseudo_email':company_email, "OTP": OTP}, status=status.HTTP_201_CREATED)
         elif models.User.objects.filter(email=email).exists():
-            # mail_status = send_mail(subject='Login OTP Redseer', message=f' Your verification code is 【{OTP}】. It is valid for 3 min .',from_email=settings.EMAIL_HOST_USER,recipient_list = [email], fail_silently=False)
             mail_status = send_mail(subject='Login OTP Redseer', message=f'Welcome Back User, Your One Time Password (OTP) for Benchmarks login is 【{OTP}】.Please DO NOT share this OTP with anyone.',from_email=settings.EMAIL_HOST_USER,recipient_list = [email], fail_silently=False)
             # message = twilio_client.messages.create(
             #             body=f'Your verification code is 【{OTP}】. It is valid for 3 min',
@@ -117,7 +116,18 @@ class LoginApi(CreateAPIView):
         if models.User.objects.filter(email=email).exists():
             user = models.User.objects.get(email=email)
             if totp.verify(OTP):
-                token = Token.objects.get(user=user) #getorcreate
+                # check if session corresponding to this user exits if it does delete that and make new session
+                # check for session key?. if get works then delete that token and create a new one
+                # token = Token.objects.get_or_create(user=user) #getorcreate
+                # print('token=', token)
+                try:
+                    token = Token.objects.get(user=user)
+                    if token:
+                        user.auth_token.delete()
+                except:
+                    pass
+                token = Token.objects.create(user = user)
+                print('token=',token)
                 # check if user is already logged in
                 return Response({'token': token.key},  status=status.HTTP_200_OK)
             else:
@@ -134,15 +144,30 @@ class LoginApi(CreateAPIView):
                     return Response({'token': token.key},  status=status.HTTP_200_OK)
                 else:
                     return Response({"msg": " Wrong OTP "}, status=status.HTTP_400_BAD_REQUEST)
-            # else:
-            #     token = Token.objects.get(user=user)
-            #     if OTP == 2704:
-            #         return Response({'token': token.key},  status=status.HTTP_200_OK)
-            #     else:
-            #         return Response({"msg": " Wrong OTP "}, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response({"msg": " Invalid Email "}, status=status.HTTP_400_BAD_REQUEST)
 
+# make it so that invalid previous token  does not log out current token
+class LogOutApi(CreateAPIView):
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
+    def get(self,request):
+        email = self.request.query_params.get('email')
+        user = models.User.objects.get(email=email)
+        if user.auth_token:
+            user.auth_token.delete()
+        return Response({'Logged_Out': True},  status=status.HTTP_200_OK)
+
+class ValidateCurrentToken(CreateAPIView):
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
+    def get(self, request):
+        email = self.request.query_params.get('email')
+        user = models.User.objects.get(email=email)
+        curr_token = Token.objects.get(user=user)
+        print("curr_token=", curr_token)
+        # print(request.META['HTTP_AUTHORIZATION'])
+        return Response({'Current_token': True},  status=status.HTTP_200_OK)
 
 class MSAccessTokenAPI(CreateAPIView):
     def get(self, request):
@@ -150,13 +175,6 @@ class MSAccessTokenAPI(CreateAPIView):
         report_name = query_params['rep']
         # report_name = 'OTT_Audio'
         print('report_name=', report_name)
-        # url = "https://login.microsoftonline.com/common/oauth2/token"
-
-        # payload = "grant_type=password\r\n&username=shahzma@redseermanagement.onmicrosoft.com\r\n&password=Redseer@2022\r\n&client_id=02400d3c-8927-4b2c-b339-66ea70f63810\r\n&client_secret=50~8Q~z4-HPZRuIQCQ170E1w9ZdKEydV9~ICoblD\r\n&resource=https://analysis.windows.net/powerbi/api"
-        # headers = {
-        # 'Content-Type': 'application/x-www-form-urlencoded',
-        # 'Cookie': 'fpc=Aus9rQPMtNtLkL7XzywalRKHPumoAQAAAHfFadoOAAAA; stsservicecookie=estsfd; x-ms-gateway-slice=estsfd'
-        # }
         url = "https://login.microsoftonline.com/common/oauth2/token"
         payload = "grant_type=password\r\n&username=test@redseerconsulting.com\r\n&password=Waj179490\r\n&client_id=a9826bb1-7b52-4b3f-80f2-2ffa4d1cd578\r\n&client_secret=kIb8Q~EYAnhv274vUvwWjAVIbEiFSR5ENjhavcNe\r\n&resource=https://analysis.windows.net/powerbi/api"
         headers = {
@@ -166,12 +184,6 @@ class MSAccessTokenAPI(CreateAPIView):
         response = requests.request("POST", url, headers=headers, data=payload)
         response = response.json()
         access_token = response["access_token"]
-
-        # workspace_url = "https://api.powerbi.com/v1.0/myorg/groups/d786d974-91ce-43e8-a52c-c0e6b402f74f/reports/"
-        # workspace_payload={}
-        # workspace_headers = {
-        # 'Authorization': f'Bearer {access_token}'
-        # }
 
         workspace_url = "https://api.powerbi.com/v1.0/myorg/groups/67294232-0c81-43c2-a16d-22544a0a390b/reports/"
         workspace_payload={}
@@ -211,8 +223,6 @@ class MSAccessTokenAPI(CreateAPIView):
         response = requests.request("GET", page_url, headers=page_headers, data=page_payload).json()
         response_val = response['value'][:14]
         return Response({'access_token':access_token , 'embed_token':embed_token, 'report_url':report_url,'report_id':report_id ,'pages':response_val}, status=status.HTTP_201_CREATED)
-        # return Response({'access_token':access_token, 'embed_token':embed_token}, status=status.HTTP_201_CREATED)
-
 
 
 class PlayerLCView(ListCreateAPIView):
