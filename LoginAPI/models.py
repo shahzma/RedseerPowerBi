@@ -15,8 +15,7 @@ from mptt.models import MPTTModel, TreeForeignKey
 def get_deadline():
     return datetime.datetime.today() + datetime.timedelta(days=30)
 
-class User(AbstractUser):
-    phone = models.CharField(max_length=255,blank=True,null=True)
+
 
 
 # previously company model. as soon as user logs in we find his pesuod id and use it to see which reports are available
@@ -24,7 +23,7 @@ class ClientModel(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
     company_email = models.EmailField(max_length=100) #pseudo email address 
-    login_mode = models.BooleanField(default=False)
+    wildcard_mode = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
@@ -44,7 +43,7 @@ class ReportModel(models.Model):
 # needed in report page . drop dataset id. to get emebed token we need to use report id.
 class ReportAccessModel(models.Model):
     id = models.AutoField(primary_key=True)
-    email = models.EmailField(max_length=100)  #real email here which is granted acess
+    # email = models.EmailField(max_length=100)  #real email here which is granted acess
     report_id = models.ForeignKey(ReportModel, on_delete = models.CASCADE)
     client_id = models.ForeignKey(ClientModel, on_delete=models.CASCADE)
     start_date = models.DateField(default=datetime.date.today)
@@ -56,8 +55,8 @@ class ReportAccessModel(models.Model):
     # report_url = models.CharField(max_length=600)
     # embed_url = models.CharField(max_length=600)
     
-    def __str__(self):
-        return self.email
+    # def __str__(self):
+    #     return self.report_id
 
     class Meta:
         managed = True
@@ -139,3 +138,7 @@ class ReportPagesModel(MPTTModel):
 #         user=user,
 #         session_id=request.session.session_key
 #     )
+
+class User(AbstractUser):
+    phone = models.CharField(max_length=255,blank=True,null=True)
+    client = models.ForeignKey(ClientModel , on_delete=models.CASCADE)

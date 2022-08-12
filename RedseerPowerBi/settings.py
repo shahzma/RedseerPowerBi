@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'LoginAPI',
     'phonenumber_field',
     'mptt',
+    'django_mptt_admin',
     'rest_framework',
     'rest_framework.authtoken'  #else token.objects wont appear
 ]
@@ -153,19 +154,19 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, "media_root")
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.gmail.com'
-# EMAIL_USE_TLS = True
-# EMAIL_PORT = 587
-# EMAIL_HOST_USER = 'shahzmaalif@gmail.com'
-# EMAIL_HOST_PASSWORD = 'eteejcmriatqnzdw'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_USE_TLS = True
+EMAIL_PORT = 587
+EMAIL_HOST_USER = 'shahzmaalif@gmail.com'
+EMAIL_HOST_PASSWORD = 'eteejcmriatqnzdw'
 AUTH_USER_MODEL = 'LoginAPI.User'
 
 
 
-EMAIL_HOST = 'outlook.office365.com'
-EMAIL_HOST_USER = 'noreply@benchmarks.digital'
-EMAIL_HOST_PASSWORD = 'BenchMark@Redseer'
-EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+# EMAIL_HOST = 'outlook.office365.com'
+# EMAIL_HOST_USER = 'noreply@benchmarks.digital'
+# EMAIL_HOST_PASSWORD = 'BenchMark@Redseer'
+# EMAIL_USE_TLS = True
+# DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 

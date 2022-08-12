@@ -9,7 +9,7 @@ from .models import ClientModel, ReportAccessModel, User, ReportModel, CompanyDo
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'email', 'phone', 'username', 'password']
+        fields = ['id', 'email', 'phone', 'username', 'password', 'client']
         read_only_fields = ['id']
 
     def create(self, validated_data):
@@ -22,7 +22,7 @@ class UserSerializer(serializers.ModelSerializer):
 class CompanySerializer(serializers.ModelSerializer):
     class Meta:
         model = ClientModel
-        fields = ['id', 'name', 'company_email', 'login_mode']
+        fields = ['id', 'name', 'company_email', 'wildcard_mode']
         read_only_fields = ['id']
 
 
@@ -56,7 +56,7 @@ class ReportAccessSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ReportAccessModel
-        fields = ['id', 'email', 'client_id', 'report_id']
+        fields = ['id', 'client_id', 'report_id']
         read_only_fields = ['id']
 
 

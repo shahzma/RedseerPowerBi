@@ -1,5 +1,6 @@
 # from django.contrib.auth.signals import user_logged_in
 # from django.contrib.auth import authenticate, login, logout
+from http import client
 from django.http import JsonResponse
 from django.shortcuts import render
 from . import models, serializers
@@ -16,6 +17,8 @@ from django.conf import settings
 from twilio.rest import Client
 import requests
 import json
+from django.core.mail import EmailMessage
+
 
 
 # Create your views here.
@@ -43,9 +46,10 @@ class ReportAccessLCView(ListCreateAPIView):
 
     def get_queryset(self):
         query_params = self.request.query_params
-        email = query_params.get("email")
-        if email:
-            self.queryset = self.queryset.filter(email=email)
+        client_id = query_params.get("client_id")
+        if client_id:
+            # self.queryset = self.queryset.filter(client__id = client_id)
+            self.queryset = self.queryset.filter(client_id = client_id)
         return self.queryset
 
 class ReportAccessRUDView(RetrieveUpdateDestroyAPIView):
@@ -67,22 +71,33 @@ class LoginApi(CreateAPIView):
     def get(self, request):
         # check i fphone exists
         account_sid = 'AC9bee304dbdd07c29504727cf6726a873'
-        auth_token = 'df9ff816bb20c46eef8fa0a16347823b'
-        # twilio_client = Client(account_sid, auth_token)
+        auth_token = '6af5d155c60e9aa0801380cecce6d597'
+        twilio_client = Client(account_sid, auth_token)
         totp = pyotp.TOTP('base32secret3232', interval=240)
         OTP = totp.now()
         print('genratedOTP = ',OTP)
         email = self.request.query_params.get('email')
-        email_company_name = email.split('@')[1].split('.')[0]
+        email_company_name = email.split('@')[1]
         # check if email is in user database or in company database or nowhere, we are checking company first
         # bcoz after 1st login user will be registred in usertable and hence will not be able to see campany aceess report
         if models.CompanyDomainModel.objects.filter(domain_name=email_company_name).exists():
             company_domain_obj = models.CompanyDomainModel.objects.filter(domain_name=email_company_name)
-            client_id = company_domain_obj[0].client_id
-            print('client_id = ',client_id)
-            company_obj = models.ClientModel.objects.filter(name = client_id)
+            client_name = company_domain_obj[0].client_id
+            company_obj = models.ClientModel.objects.filter(name = client_name)
             company_email = company_obj[0].company_email
-            mail_status = send_mail(subject='Login OTP Redseer', message=f'Welcome Back User, Your One Time Password (OTP) for Benchmarks login is 【{OTP}】.Please DO NOT share this OTP with anyone.',from_email=settings.EMAIL_HOST_USER,recipient_list = [email], fail_silently=False)
+            company_client_id = company_obj[0].id
+            print('comp_client_id=', company_client_id)
+            print('comp_email=',company_email)
+            msg = EmailMessage(
+                'Login OTP Redseer',
+                f'Welcome back User,<br>Your One Time Password (OTP) for Benchmarks login is 【{OTP}】.<br>Please DO NOT share this OTP with anyone.<br>Cheers,<br>Team Benchmarks',
+                settings.EMAIL_HOST_USER,
+                [email]
+            )
+            msg.content_subtype = "html"
+            mail_status =msg.send()
+            print('mail_sent')
+            # mail_status = send_mail(subject='Login OTP Redseer', message=f'Welcome Back User, Your One Time Password (OTP) for Benchmarks login is 【{OTP}】.Please DO NOT share this OTP with anyone.',from_email=settings.EMAIL_HOST_USER,recipient_list = [email], fail_silently=False)
             # message = twilio_client.messages.create(
             #             body=f'Your verification code is 【{OTP}】. It is valid for 3 min',
             #             from_='+19705577581',
@@ -91,18 +106,29 @@ class LoginApi(CreateAPIView):
             if mail_status==0:
                 return Response({"msg": " Failed to send mail "}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                return Response({'company_pseudo_email':company_email, "OTP": OTP}, status=status.HTTP_201_CREATED)
+                return Response({'pseudo_email':company_email, "OTP": OTP, 'client_id':company_client_id}, status=status.HTTP_201_CREATED)
         elif models.User.objects.filter(email=email).exists():
-            mail_status = send_mail(subject='Login OTP Redseer', message=f'Welcome Back User, Your One Time Password (OTP) for Benchmarks login is 【{OTP}】.Please DO NOT share this OTP with anyone.',from_email=settings.EMAIL_HOST_USER,recipient_list = [email], fail_silently=False)
-            # message = twilio_client.messages.create(
-            #             body=f'Your verification code is 【{OTP}】. It is valid for 3 min',
-            #             from_='+19705577581',
-            #             to='+918791205476'
-            #         )
+            user = models.User.objects.filter(email=email)
+            user_client_id = user[0].client_id
+            mobile_num = user[0].phone
+            msg = EmailMessage(
+                'Login OTP Redseer',
+                f'Welcome Back User, <br><br> Your One Time Password (OTP) for Benchmarks login is 【{OTP}】.<br>Please DO NOT share this OTP with anyone.<br><br>Cheers,<br>Team Benchmarks',
+                settings.EMAIL_HOST_USER,
+                [email]
+            )
+            msg.content_subtype = "html"
+            mail_status = msg.send()
+            if mobile_num:
+                message = twilio_client.messages.create(
+                            body=f'Your verification code is 【{OTP}】. It is valid for 3 min',
+                            from_='+18775655473',
+                            to=str(mobile_num)
+                        )
             if mail_status==0:
                 return Response({"msg": " Failed to send mail "}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                return Response({"msg": f" The verification code has been sent to {email} Send complete .OTP = {OTP}"}, status=status.HTTP_201_CREATED)
+                return Response({'pseudo_email':email, "OTP": OTP, 'client_id':user_client_id}, status=status.HTTP_201_CREATED)
         else:
             return Response({"msg": " Invalid Email "}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -112,7 +138,7 @@ class LoginApi(CreateAPIView):
         OTP = request.data.get('OTP')
         print('recieved otp = ',OTP)
         email = request.data.get('email')
-        email_company_name = email.split('@')[1].split('.')[0]
+        email_company_name = email.split('@')[1]
         if models.User.objects.filter(email=email).exists():
             user = models.User.objects.get(email=email)
             if totp.verify(OTP):
@@ -135,7 +161,10 @@ class LoginApi(CreateAPIView):
         elif models.CompanyDomainModel.objects.filter(domain_name=email_company_name).exists():
             # get or create user and corresponding token. check if username exists and convert it
             username = email.split('@')[0]
-            user, created = models.User.objects.get_or_create(username=username, email = email)
+            client_name = models.CompanyDomainModel.objects.filter(domain_name=email_company_name)[0].client_id
+            company_obj = models.ClientModel.objects.filter(name = client_name)
+            company_client_id = company_obj[0].id
+            user, created = models.User.objects.get_or_create(username=username, email = email, client_id = company_client_id)
             if created:
                 user.set_password('123')
                 user.save()
@@ -170,6 +199,8 @@ class ValidateCurrentToken(CreateAPIView):
         return Response({'Current_token': True},  status=status.HTTP_200_OK)
 
 class MSAccessTokenAPI(CreateAPIView):
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
     def get(self, request):
         query_params = self.request.query_params
         report_name = query_params['rep']
