@@ -39,8 +39,8 @@ class ReportLCView(ListCreateAPIView):
     serializer_class = serializers.ReportModelSerializer
 
 class ReportAccessLCView(ListCreateAPIView):
-    # permission_classes = (IsAuthenticated,)
-    # authentication_classes = (TokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
     queryset = models.ReportAccessModel.objects
     serializer_class = serializers.ReportAccessSerializer
 
@@ -80,6 +80,7 @@ class LoginApi(CreateAPIView):
         email_company_name = email.split('@')[1]
         # check if email is in user database or in company database or nowhere, we are checking company first
         # bcoz after 1st login user will be registred in usertable and hence will not be able to see campany aceess report
+        # company domian model corresponds to wildcad entry
         if models.CompanyDomainModel.objects.filter(domain_name=email_company_name).exists():
             company_domain_obj = models.CompanyDomainModel.objects.filter(domain_name=email_company_name)
             client_name = company_domain_obj[0].client_id
@@ -110,25 +111,27 @@ class LoginApi(CreateAPIView):
         elif models.User.objects.filter(email=email).exists():
             user = models.User.objects.filter(email=email)
             user_client_id = user[0].client_id
+            company_email = models.ClientModel.objects.filter(id=user_client_id)[0].company_email
+            print('company_email=', company_email)
             mobile_num = user[0].phone
             msg = EmailMessage(
-                'Login OTP Redseer',
+                'Login OTP BenchMarks',
                 f'Welcome Back User, <br><br> Your One Time Password (OTP) for Benchmarks login is 【{OTP}】.<br>Please DO NOT share this OTP with anyone.<br><br>Cheers,<br>Team Benchmarks',
                 settings.EMAIL_HOST_USER,
                 [email]
             )
             msg.content_subtype = "html"
             mail_status = msg.send()
-            if mobile_num:
-                message = twilio_client.messages.create(
-                            body=f'Your verification code is 【{OTP}】. It is valid for 3 min',
-                            from_='+18775655473',
-                            to=str(mobile_num)
-                        )
+            # if mobile_num:
+            #     message = twilio_client.messages.create(
+            #                 body=f'Your verification code is 【{OTP}】. It is valid for 3 min',
+            #                 from_='+18775655473',
+            #                 to=str(mobile_num)
+            #             )
             if mail_status==0:
                 return Response({"msg": " Failed to send mail "}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                return Response({'pseudo_email':email, "OTP": OTP, 'client_id':user_client_id}, status=status.HTTP_201_CREATED)
+                return Response({'pseudo_email':company_email, "OTP": OTP, 'client_id':user_client_id}, status=status.HTTP_201_CREATED)
         else:
             return Response({"msg": " Invalid Email "}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -195,7 +198,6 @@ class ValidateCurrentToken(CreateAPIView):
         user = models.User.objects.get(email=email)
         curr_token = Token.objects.get(user=user)
         print("curr_token=", curr_token)
-        # print(request.META['HTTP_AUTHORIZATION'])
         return Response({'Current_token': True},  status=status.HTTP_200_OK)
 
 class MSAccessTokenAPI(CreateAPIView):
@@ -204,10 +206,9 @@ class MSAccessTokenAPI(CreateAPIView):
     def get(self, request):
         query_params = self.request.query_params
         report_name = query_params['rep']
-        # report_name = 'OTT_Audio'
-        print('report_name=', report_name)
+        email = query_params['email']
         url = "https://login.microsoftonline.com/common/oauth2/token"
-        payload = "grant_type=password\r\n&username=test@redseerconsulting.com\r\n&password=Waj179490\r\n&client_id=a9826bb1-7b52-4b3f-80f2-2ffa4d1cd578\r\n&client_secret=kIb8Q~EYAnhv274vUvwWjAVIbEiFSR5ENjhavcNe\r\n&resource=https://analysis.windows.net/powerbi/api"
+        payload = "grant_type=password\r\n&username=digital@redseerconsulting.com\r\n&password=Waj179490\r\n&client_id=a9826bb1-7b52-4b3f-80f2-2ffa4d1cd578\r\n&client_secret=kIb8Q~EYAnhv274vUvwWjAVIbEiFSR5ENjhavcNe\r\n&resource=https://analysis.windows.net/powerbi/api"
         headers = {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Cookie': 'fpc=Aus9rQPMtNtLkL7XzywalRLdloFgAQAAABHzetoOAAAA; stsservicecookie=estsfd; x-ms-gateway-slice=estsfd'
@@ -226,15 +227,25 @@ class MSAccessTokenAPI(CreateAPIView):
         value=response.json()['value']
         report_id = 0
         report_url = ''
+        report_datasetId = 0
         for i in value:
             if i['name']==report_name:
+                print('i=', i)
                 report_id = i['id']
                 report_url = i['embedUrl']
+                report_datasetId = i['datasetId']
         print(report_id)
+        print('report_datasetid=',report_datasetId)
         embed_url = f"https://api.powerbi.com/v1.0/myorg/groups/67294232-0c81-43c2-a16d-22544a0a390b/reports/{report_id}/GenerateToken"
         embed_payload = json.dumps({
         "accessLevel": "View",
-        "allowSaveAs": "false"
+        "allowSaveAs": "false",
+         "identities": [{
+        "userpricipalname": "user",
+        "username":email,
+        "roles": ["Client_Dynamic_RLS"],
+        "datasets": [report_datasetId]
+        }]
         })
         embed_headers = {
         'Authorization': f'Bearer {access_token}',
