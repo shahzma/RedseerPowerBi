@@ -73,15 +73,21 @@ class LoginApi(CreateAPIView):
         account_sid = 'AC9bee304dbdd07c29504727cf6726a873'
         auth_token = '6af5d155c60e9aa0801380cecce6d597'
         twilio_client = Client(account_sid, auth_token)
-        totp = pyotp.TOTP('base32secret3232', interval=240)
-        OTP = totp.now()
-        print('genratedOTP = ',OTP)
+        # totp = pyotp.TOTP('base32secret3232', interval=240)
+        # OTP = totp.now()
+        # counter_val = 
+        # hotp = pyotp.HOTP('base32secret3232')
+        # OTP = hotp.at(counter_val)
+        # print('genratedOTP = ',OTP)
         email = self.request.query_params.get('email')
         email_company_name = email.split('@')[1]
         # check if email is in user database or in company database or nowhere, we are checking company first
         # bcoz after 1st login user will be registred in usertable and hence will not be able to see campany aceess report
         # company domian model corresponds to wildcad entry
         if models.CompanyDomainModel.objects.filter(domain_name=email_company_name).exists():
+            totp = pyotp.TOTP('base32secret3232', interval=300)
+            OTP = totp.now()
+            print('genratedOTP = ',OTP)
             company_domain_obj = models.CompanyDomainModel.objects.filter(domain_name=email_company_name)
             client_name = company_domain_obj[0].client_id
             company_obj = models.ClientModel.objects.filter(name = client_name)
@@ -113,7 +119,14 @@ class LoginApi(CreateAPIView):
             user_client_id = user[0].client_id
             company_email = models.ClientModel.objects.filter(id=user_client_id)[0].company_email
             print('company_email=', company_email)
-            mobile_num = user[0].phone
+            counter_val = user[0].counter
+            hotp = pyotp.HOTP('base32secret3232')
+            OTP = hotp.at(counter_val)
+            print('genratedOTP = ',OTP)
+            user = user[0]
+            user.counter+=1
+            user.save()
+            mobile_num = user.phone
             msg = EmailMessage(
                 'Login OTP BenchMarks',
                 f'Welcome Back User, <br><br> Your One Time Password (OTP) for Benchmarks login is 【{OTP}】.<br>Please DO NOT share this OTP with anyone.<br><br>Cheers,<br>Team Benchmarks',
@@ -131,20 +144,21 @@ class LoginApi(CreateAPIView):
             if mail_status==0:
                 return Response({"msg": " Failed to send mail "}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                return Response({'pseudo_email':company_email, "OTP": OTP, 'client_id':user_client_id}, status=status.HTTP_201_CREATED)
+                return Response({'pseudo_email':company_email, 'client_id':user_client_id}, status=status.HTTP_201_CREATED)
         else:
             return Response({"msg": " Invalid Email "}, status=status.HTTP_400_BAD_REQUEST)
 
     # This Method verifies the OTP
     def post(self, request):
         totp = pyotp.TOTP('base32secret3232', interval=240)
+        hotp = pyotp.HOTP('base32secret3232')
         OTP = request.data.get('OTP')
         print('recieved otp = ',OTP)
         email = request.data.get('email')
         email_company_name = email.split('@')[1]
         if models.User.objects.filter(email=email).exists():
             user = models.User.objects.get(email=email)
-            if totp.verify(OTP):
+            if hotp.verify(OTP, (user.counter)-1):
                 # check if session corresponding to this user exits if it does delete that and make new session
                 # check for session key?. if get works then delete that token and create a new one
                 # token = Token.objects.get_or_create(user=user) #getorcreate
@@ -272,6 +286,11 @@ class PlayerLCView(ListCreateAPIView):
     # authentication_classes = (TokenAuthentication,)
     serializer_class = serializers.PlayerSerializer
     queryset = models.Player.objects
+    def get(self,request):
+        name = self.request.query_params.get('name')
+        print(name)
+        player = models.Player.objects.get(player_name=name)
+        return Response({'powerbi_page': player.powerbi_page},  status=status.HTTP_200_OK)
 
 class ReportPlayerLCView(ListCreateAPIView):
     # permission_classes = (IsAuthenticated,)

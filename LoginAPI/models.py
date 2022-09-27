@@ -1,3 +1,4 @@
+from email.policy import default
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from phonenumber_field.modelfields import PhoneNumberField
@@ -78,6 +79,7 @@ class Player(models.Model):
     player_id = models.AutoField(primary_key=True, auto_created=True)
     player_name = models.CharField(max_length=45)
     industry_id = models.IntegerField(default=3) #is called industry
+    powerbi_page = models.CharField(max_length=2000)
 
     class Meta:
         managed = False
@@ -142,3 +144,4 @@ class ReportPagesModel(MPTTModel):
 class User(AbstractUser):
     phone = models.CharField(max_length=255,blank=True,null=True)
     client = models.ForeignKey(ClientModel , on_delete=models.CASCADE)
+    counter = models.IntegerField(default=0)
