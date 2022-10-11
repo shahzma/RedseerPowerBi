@@ -4,7 +4,7 @@ from django.contrib import admin
 from django.urls import path
 from django.conf.urls import include
 from .views import LogOutApi, LoginApi, UserViewSet, CompanyLCView, ReportAccessLCView, ReportAccessRUDView, ReportLCView,CompanyDomainLCView,MSAccessTokenAPI, PlayerLCView, ReportPageApi\
-    ,ReportPlayerLCView, IconLCView, ValidateCurrentToken
+    ,ReportPlayerLCView, IconLCView, ValidateCurrentToken, GoogleLoginApi, MicrosoftLoginApi
 
 
 router = routers.DefaultRouter()
@@ -62,6 +62,14 @@ validate_urls = [
     path('', ValidateCurrentToken.as_view(), name = 'lc')
 ]
 
+google_urls = [
+    path('', GoogleLoginApi.as_view(), name = 'l')
+]
+
+ms_urls = [
+    path('', MicrosoftLoginApi.as_view(), name='l')
+]
+
 urlpatterns = [
     path('', include(router.urls)),
     path('authorise/', include(authUrls), name='authorise'),
@@ -76,4 +84,6 @@ urlpatterns = [
     path('icons/', include(icon_urls), name = 'icons'),
     path('logout/', include(logout_urls), name = 'logout'),
     path('validateToken/', include(validate_urls), name = 'validate'),
+    path('api/v1/auth/login/google/', include(google_urls), name = 'google'),
+    path('login/ms/', include(ms_urls), name = 'ms'),
     ]

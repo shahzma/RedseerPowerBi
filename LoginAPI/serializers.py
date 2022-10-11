@@ -96,3 +96,7 @@ class ReportPagesSerializer(serializers.ModelSerializer):
         model = ReportPagesModel
         fields =['id','page_name','parent','icon', 'link','order']
         read_only_fields = ['id']
+
+class InputSerializer(serializers.Serializer):
+        code = serializers.CharField(required=False)
+        error = serializers.CharField(required=False)

@@ -18,8 +18,17 @@ from twilio.rest import Client
 import requests
 import json
 from django.core.mail import EmailMessage
+from rest_framework.views import APIView
+from rest_framework import status
+from django.urls import reverse
+from django.shortcuts import redirect
+from urllib.parse import urlencode
+from django.core.exceptions import ValidationError
+import requests
 
-
+GOOGLE_ID_TOKEN_INFO_URL = 'https://www.googleapis.com/oauth2/v3/tokeninfo'
+GOOGLE_ACCESS_TOKEN_OBTAIN_URL = 'https://oauth2.googleapis.com/token'
+GOOGLE_USER_INFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo'
 
 # Create your views here.
 class UserViewSet(viewsets.ModelViewSet):
@@ -39,8 +48,8 @@ class ReportLCView(ListCreateAPIView):
     serializer_class = serializers.ReportModelSerializer
 
 class ReportAccessLCView(ListCreateAPIView):
-    permission_classes = (IsAuthenticated,)
-    authentication_classes = (TokenAuthentication,)
+    # permission_classes = (IsAuthenticated,)
+    # authentication_classes = (TokenAuthentication,)
     queryset = models.ReportAccessModel.objects
     serializer_class = serializers.ReportAccessSerializer
 
@@ -113,7 +122,7 @@ class LoginApi(CreateAPIView):
             if mail_status==0:
                 return Response({"msg": " Failed to send mail "}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                return Response({'pseudo_email':company_email, "OTP": OTP, 'client_id':company_client_id}, status=status.HTTP_201_CREATED)
+                return Response({'pseudo_email':company_email, "OTP": OTP, 'client_id':company_client_id, 'unregistered':False}, status=status.HTTP_201_CREATED)
         elif models.User.objects.filter(email=email).exists():
             user = models.User.objects.filter(email=email)
             user_client_id = user[0].client_id
@@ -144,13 +153,32 @@ class LoginApi(CreateAPIView):
             if mail_status==0:
                 return Response({"msg": " Failed to send mail "}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                return Response({'pseudo_email':company_email, 'client_id':user_client_id}, status=status.HTTP_201_CREATED)
+                return Response({'pseudo_email':company_email, 'client_id':user_client_id, 'unregistered':False}, status=status.HTTP_201_CREATED)
         else:
-            return Response({"msg": " Invalid Email "}, status=status.HTTP_400_BAD_REQUEST)
+            company_client_id = 9
+            company_email = 'nocompany@redseerconsulting.com'
+            counter_val = 0
+            hotp = pyotp.HOTP('base32secret3232')
+            OTP = hotp.at(counter_val)
+            msg = EmailMessage(
+                'Login OTP Redseer',
+                f'Welcome back User,<br>Your One Time Password (OTP) for Benchmarks login is 【{OTP}】.<br>Please DO NOT share this OTP with anyone.<br>Cheers,<br>Team Benchmarks',
+                settings.EMAIL_HOST_USER,
+                [email]
+            )
+            msg.content_subtype = "html"
+            mail_status =msg.send()
+            print('mail_sent')
+            if mail_status==0:
+                # incase someone uses invalid email
+                return Response({"msg": " Failed to send mail "}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({'pseudo_email':company_email, "OTP": OTP, 'client_id':company_client_id, 'unregistered':True}, status=status.HTTP_201_CREATED)
+            # return Response({"msg": " Invalid Email "}, status=status.HTTP_400_BAD_REQUEST)
 
     # This Method verifies the OTP
     def post(self, request):
-        totp = pyotp.TOTP('base32secret3232', interval=240)
+        totp = pyotp.TOTP('base32secret3232', interval=300)
         hotp = pyotp.HOTP('base32secret3232')
         OTP = request.data.get('OTP')
         print('recieved otp = ',OTP)
@@ -191,7 +219,20 @@ class LoginApi(CreateAPIView):
                 else:
                     return Response({"msg": " Wrong OTP "}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            return Response({"msg": " Invalid Email "}, status=status.HTTP_400_BAD_REQUEST)
+            # username = email.split('@')[0]
+            username = request.data.get('username')
+            phone = '+91'+str(request.data.get('phone'))
+            client_id = 9
+            user, created = models.User.objects.get_or_create(username=username, email = email, client_id = client_id, phone=phone)
+            if created:
+                user.set_password('123')
+                user.save()
+                token = Token.objects.create(user=user)
+                if hotp.verify(OTP,0):
+                    return Response({'token': token.key},  status=status.HTTP_200_OK)
+                else:
+                    return Response({"msg": " Wrong OTP "}, status=status.HTTP_400_BAD_REQUEST)
+            # return Response({"msg": " Invalid Email "}, status=status.HTTP_400_BAD_REQUEST)
 
 # make it so that invalid previous token  does not log out current token
 class LogOutApi(CreateAPIView):
@@ -321,3 +362,180 @@ class IconLCView(ListCreateAPIView):
     # authentication_classes = (TokenAuthentication,)
     queryset = models.IconModel.objects.all()
     serializer_class = serializers.IconSerializer
+
+
+class GoogleLoginApi(APIView):
+
+    def get(self, request, *args, **kwargs):
+        input_serializer = serializers.InputSerializer(data=request.GET)
+        input_serializer.is_valid(raise_exception=True)
+
+        validated_data = input_serializer.validated_data
+
+        code = validated_data.get('code')
+        error = validated_data.get('error')
+
+        login_url = f'{settings.BASE_FRONTEND_URL}/login'
+
+        if error or not code:
+            print(error)
+            params = urlencode({'error': error})
+            return redirect(f'{login_url}?{params}')
+
+        domain = settings.BASE_BACKEND_URL
+        # api_uri = reverse('api:v1:auth:login-with-google')
+        # redirect_uri = f'{domain}{api_uri}'
+        redirect_uri = 'http://localhost:8001/api/v1/auth/login/google/'
+        def google_get_access_token(*, code: str, redirect_uri: str) -> str:
+    # Reference: https://developers.google.com/identity/protocols/oauth2/web-server#obtainingaccesstokens
+            data = {
+                'code': code,
+                'client_id': settings.GOOGLE_OAUTH2_CLIENT_ID,
+                'client_secret': settings.GOOGLE_OAUTH2_CLIENT_SECRET,
+                'redirect_uri': redirect_uri,
+                'grant_type': 'authorization_code'
+            }
+
+            response = requests.post(GOOGLE_ACCESS_TOKEN_OBTAIN_URL, data=data)
+
+            if not response.ok:
+                raise ValidationError('Failed to obtain access token from Google.')
+
+            access_token = response.json()['access_token']
+
+            return access_token
+
+        def google_get_user_info(*, access_token: str):
+            # Reference: https://developers.google.com/identity/protocols/oauth2/web-server#callinganapi
+            response = requests.get(
+                GOOGLE_USER_INFO_URL,
+                params={'access_token': access_token}
+            )
+
+            if not response.ok:
+                raise ValidationError('Failed to obtain user info from Google.')
+
+            return response.json()
+
+        access_token = google_get_access_token(code=code, redirect_uri=redirect_uri)
+
+        user_data = google_get_user_info(access_token=access_token)
+
+        profile_data = {
+            'email': user_data['email'],
+            'first_name': user_data.get('givenName', ''),
+            'last_name': user_data.get('familyName', ''),
+        }
+        print(profile_data)
+        email = user_data['email']
+        email_company_name = email.split('@')[1]
+        # 3 cases - C1 = user belongs to company and logging in firsttime
+        # C2 = user in database and belongs to some company
+        # C3 = user logging in first time and no company
+        if models.User.objects.filter(email=email).exists():
+            user = models.User.objects.get(email=email)
+            user_client_id = user.client_id
+            try:
+                token = Token.objects.get(user=user)
+                if token:
+                    user.auth_token.delete()
+            except:
+                pass
+            token = Token.objects.create(user = user)
+            print('token=',token)
+            company_email = models.ClientModel.objects.filter(id=user_client_id)[0].company_email
+            response = redirect(f'http://localhost:3000/MainPage/?backend_token={token}&client_id={user_client_id}&email={email}&pseudo_email={company_email}')
+            return response
+        elif models.CompanyDomainModel.objects.filter(domain_name=email_company_name).exists():
+            username = email.split('@')[0]
+            company_domain_obj = models.CompanyDomainModel.objects.filter(domain_name=email_company_name)
+            client_name = company_domain_obj[0].client_id
+            company_obj = models.ClientModel.objects.filter(name = client_name)
+            company_email = company_obj[0].company_email
+            company_client_id = company_obj[0].id
+            # client_name = models.CompanyDomainModel.objects.filter(domain_name=email_company_name)[0].client_id
+            # company_obj = models.ClientModel.objects.filter(name = client_name)
+            company_client_id = company_obj[0].id
+            user, created = models.User.objects.get_or_create(username=username, email = email, client_id = company_client_id)
+            if created:
+                user.set_password('123')
+                user.save()
+                token = Token.objects.create(user=user)
+                response = redirect(f'http://localhost:3000/MainPage/?backend_token={token}&client_id={company_client_id}&email={email}&pseudo_email={company_email}')
+                return response
+        else:
+            username = email.split('@')[0]
+            company_client_id = 9
+            company_email = 'nocompany@redseerconsulting.com'
+            user, created = models.User.objects.get_or_create(username=username, email = email, client_id = company_client_id)
+            if created:
+                user.set_password('123')
+                user.save()
+                token = Token.objects.create(user=user)
+                response = redirect(f'http://localhost:3000/MainPage/?backend_token={token}&client_id={company_client_id}&email={email}&pseudo_email={company_email}')
+                return response
+
+class MicrosoftLoginApi(APIView):
+
+    def post(self, request, *args, **kwargs):
+        email = request.data.get('email')
+        access_token = request.data.get('access_token')
+        url = "https://graph.microsoft.com/v1.0/me"
+
+        payload={}
+        headers = {
+        'Authorization': f'Bearer {access_token}'
+        }
+
+        response = requests.request("GET", url, headers=headers, data=payload)
+
+        print('resp=',response)
+        if response.status_code==200:
+            email_company_name = email.split('@')[1]
+            # 3 cases - C1 = user belongs to company and logging in firsttime
+            # C2 = user in database and belongs to some company
+            # C3 = user logging in first time and no company
+            if models.User.objects.filter(email=email).exists():
+                user = models.User.objects.get(email=email)
+                user_client_id = user.client_id
+                try:
+                    token = Token.objects.get(user=user)
+                    if token:
+                        user.auth_token.delete()
+                except:
+                    pass
+                token = Token.objects.get_or_create(user = user)
+                print('token=',type(token[0].key))
+                company_email = models.ClientModel.objects.filter(id=user_client_id)[0].company_email
+                # response = redirect(f'http://localhost:3000/MainPage/?backend_token={token}&client_id={user_client_id}&email={email}&pseudo_email={company_email}')
+                # return response
+                return Response({'token':token[0].key,'pseudo_email':company_email, 'client_id':user_client_id}, status=status.HTTP_201_CREATED)
+            elif models.CompanyDomainModel.objects.filter(domain_name=email_company_name).exists():
+                username = email.split('@')[0]
+                company_domain_obj = models.CompanyDomainModel.objects.filter(domain_name=email_company_name)
+                client_name = company_domain_obj[0].client_id
+                company_obj = models.ClientModel.objects.filter(name = client_name)
+                company_email = company_obj[0].company_email
+                company_client_id = company_obj[0].id
+                # client_name = models.CompanyDomainModel.objects.filter(domain_name=email_company_name)[0].client_id
+                # company_obj = models.ClientModel.objects.filter(name = client_name)
+                company_client_id = company_obj[0].id
+                user, created = models.User.objects.get_or_create(username=username, email = email, client_id = company_client_id)
+                if created:
+                    user.set_password('123')
+                    user.save()
+                    token = Token.objects.get_or_create(user=user)
+                    print('new_tok=', token)
+                    return Response({'token':token[0],'pseudo_email':company_email, 'client_id':company_client_id}, status=status.HTTP_201_CREATED)
+            else:
+                username = email.split('@')[0]
+                company_client_id = 9
+                company_email = 'nocompany@redseerconsulting.com'
+                user, created = models.User.objects.get_or_create(username=username, email = email, client_id = company_client_id)
+                if created:
+                    user.set_password('123')
+                    user.save()
+                    token = Token.objects.create(user=user)
+                    print(token)
+                    # passand check token value
+                    return Response({'token':token.key,'pseudo_email':company_email, 'client_id':company_client_id}, status=status.HTTP_201_CREATED)

@@ -21,6 +21,8 @@ from django.conf import settings
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    # path('o/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     path('auth/', obtain_auth_token),
-    path('', include('LoginAPI.urls'))
+    path('', include('LoginAPI.urls')),
+    # path('microsoft/', include('microsoft_auth.urls', namespace='microsoft')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

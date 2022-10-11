@@ -44,8 +44,14 @@ INSTALLED_APPS = [
     'mptt',
     'django_mptt_admin',
     'rest_framework',
+    # 'django.contrib.sites',
+    # 'microsoft_auth',
+    # 'oauth2_provider',
     'rest_framework.authtoken'  #else token.objects wont appear
 ]
+
+# SITE = 'http://localhost:8001/'
+# SITE_ID = 1
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -71,6 +77,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                # 'microsoft_auth.context_processors.microsoft',
             ],
         },
     },
@@ -136,7 +143,21 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.BasicAuthentication',
     ]
 }
+AUTHENTICATION_BACKENDS = [
+    'microsoft_auth.backends.MicrosoftAuthenticationBackend',
+    'django.contrib.auth.backends.ModelBackend' # if you also want to use Django's authentication
+    # I recommend keeping this with at least one database superuser in case of unable to use others
+]
 
+# values you got from step 2 from your Mirosoft app
+MICROSOFT_AUTH_CLIENT_ID = '9a7ffe59-718e-40ee-b04e-d6f85b53f512'
+MICROSOFT_AUTH_CLIENT_SECRET = 'GKi8Q~MnQTKOseozY.xDJq1Pq5nEsjcV9iHMCcYt'
+# Tenant ID is also needed for single tenant applications
+# MICROSOFT_AUTH_TENANT_ID = 'your-tenant-id-from-apps.dev.microsoft.com'
+
+# pick one MICROSOFT_AUTH_LOGIN_TYPE value
+# Microsoft authentication
+# include Microsoft Accounts, Off
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
@@ -150,23 +171,28 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, "static_root")
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, "media_root")
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
-EMAIL_HOST_USER = 'shahzmaalif@gmail.com'
-EMAIL_HOST_PASSWORD = 'eteejcmriatqnzdw'
+# EMAIL_HOST_USER = 'shahzmaalif@gmail.com'
+# EMAIL_HOST_PASSWORD = 'eteejcmriatqnzdw'
 AUTH_USER_MODEL = 'LoginAPI.User'
+# BASE_FRONTEND_URL = 'http://localhost:3000'
+BASE_FRONTEND_URL = 'https://benchmarks.digital/'
+# BASE_BACKEND_URL = 'http://localhost:8001'
+BASE_BACKEND_URL = 'https://api.benchmarks.digital'
+GOOGLE_OAUTH2_CLIENT_ID = '560541008989-k0er5bb7onv6dj7d46fh05cjes2qb9p5.apps.googleusercontent.com'
+GOOGLE_OAUTH2_CLIENT_SECRET = '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'
 
-
-
-# EMAIL_HOST = 'outlook.office365.com'
-# EMAIL_HOST_USER = 'noreply@benchmarks.digital'
-# EMAIL_HOST_PASSWORD = 'BenchMark@Redseer'
-# EMAIL_USE_TLS = True
-# DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+EMAIL_HOST = 'outlook.office365.com'
+EMAIL_HOST_USER = 'noreply@benchmarks.digital'
+EMAIL_HOST_PASSWORD = 'BenchMark@Redseer'
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 
