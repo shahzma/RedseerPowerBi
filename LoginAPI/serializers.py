@@ -56,7 +56,7 @@ class ReportAccessSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ReportAccessModel
-        fields = ['id', 'client_id', 'report_id']
+        fields = ['id', 'client_id', 'report_id', 'start_date', 'end_date']
         read_only_fields = ['id']
 
 

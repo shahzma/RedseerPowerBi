@@ -47,8 +47,8 @@ class ReportAccessModel(models.Model):
     # email = models.EmailField(max_length=100)  #real email here which is granted acess
     report_id = models.ForeignKey(ReportModel, on_delete = models.CASCADE)
     client_id = models.ForeignKey(ClientModel, on_delete=models.CASCADE)
-    start_date = models.DateField(default=datetime.date.today)
-    end_date = models.DateField(default=get_deadline)
+    start_date = models.DateField(default=datetime.date.today, blank=True, null=True)
+    end_date = models.DateField(default=get_deadline, blank=True, null=True)
 
     # report_name = models.CharField(max_length=100)
     # ms_report_id = models.UUIDField()

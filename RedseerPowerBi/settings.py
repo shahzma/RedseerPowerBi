@@ -44,14 +44,14 @@ INSTALLED_APPS = [
     'mptt',
     'django_mptt_admin',
     'rest_framework',
-    # 'django.contrib.sites',
-    # 'microsoft_auth',
+    'django.contrib.sites',
+    'microsoft_auth',
     # 'oauth2_provider',
     'rest_framework.authtoken'  #else token.objects wont appear
 ]
 
 # SITE = 'http://localhost:8001/'
-# SITE_ID = 1
+SITE_ID = 1
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

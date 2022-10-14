@@ -220,10 +220,13 @@ class LoginApi(CreateAPIView):
                     return Response({"msg": " Wrong OTP "}, status=status.HTTP_400_BAD_REQUEST)
         else:
             # username = email.split('@')[0]
-            username = request.data.get('username')
+            first_name = request.data.get('first_name')
+            last_name = request.data.get('last_name')
             phone = '+91'+str(request.data.get('phone'))
+            # first_name = 'sam'
+            # last_name = 'fisher'
             client_id = 9
-            user, created = models.User.objects.get_or_create(username=username, email = email, client_id = client_id, phone=phone)
+            user, created = models.User.objects.get_or_create(username=email, email = email, client_id = client_id, phone=phone, first_name = first_name, last_name = last_name)
             if created:
                 user.set_password('123')
                 user.save()
