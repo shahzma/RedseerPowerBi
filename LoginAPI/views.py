@@ -388,7 +388,8 @@ class GoogleLoginApi(APIView):
         domain = settings.BASE_BACKEND_URL
         # api_uri = reverse('api:v1:auth:login-with-google')
         # redirect_uri = f'{domain}{api_uri}'
-        redirect_uri = 'http://localhost:8001/api/v1/auth/login/google/'
+        # redirect_uri = 'http://localhost:8001/api/v1/auth/login/google/'
+        redirect_uri = 'https://api.benchmarks.digital/api/v1/auth/login/google/'
         def google_get_access_token(*, code: str, redirect_uri: str) -> str:
     # Reference: https://developers.google.com/identity/protocols/oauth2/web-server#obtainingaccesstokens
             data = {
