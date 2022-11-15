@@ -26,9 +26,159 @@ from urllib.parse import urlencode
 from django.core.exceptions import ValidationError
 import requests
 
+import pandas as pd
+import os
+import pymysql
+import namegenerator as rng
+from openpyxl import workbook
+
+import datetime
+from datetime import datetime
+from datetime import date
+import calendar
+
+import string
+import random
+
+import requests
+import json
+import msal
+
 GOOGLE_ID_TOKEN_INFO_URL = 'https://www.googleapis.com/oauth2/v3/tokeninfo'
 GOOGLE_ACCESS_TOKEN_OBTAIN_URL = 'https://oauth2.googleapis.com/token'
 GOOGLE_USER_INFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo'
+
+CLIENT_ID = 'c59ec6d5-8e5c-4759-a8b9-42250ff91551'
+TENANT_ID= '00a9ff8c-9830-4847-ae51-4579ec092cb4'
+CLIENT_SECRET = 'db1e3ed9-5b0f-4669-b250-525558bc5fdd'
+AUTHORITY_URL = 'https://login.microsoftonline.com/{}'.format(TENANT_ID)
+RESOURCE_URL = 'https://graph.microsoft.com/'
+API_VERSION = 'v1.0'
+USERNAME = 'kajalverma@redseerconsulting.com' #Office365 user's account username
+PASSWORD = 'jingalala#@123R'
+SCOPES = ['Sites.ReadWrite.All','Files.ReadWrite.All'] # Add other scopes/permissions as needed.
+
+
+def start_end_date(month):
+    datetime_object = datetime.strptime(month[:3], "%b")
+    month_number = datetime_object.month
+    year=month[-2:]
+    sd='1.'+str(month_number)+'.'+year
+    SD= datetime.strptime(sd,'%d.%m.%y').strftime('%Y-%m-%d')
+    end_day=calendar.monthrange(int(SD[:4]),month_number)[1]
+    ed=str(end_day)+'.'+str(month_number)+'.'+year
+    ED= datetime.strptime(ed,'%d.%m.%y').strftime('%Y-%m-%d')
+    return(SD,ED)
+
+def date_conversion(a):
+    month_num=a[5:7]
+    yr=a[:4]
+    datetime_object = datetime.strptime(str(month_num), "%m")
+    month_name = datetime_object.strftime("%b")
+    month_conv= month_name+"'"+yr
+    return month_conv
+
+def date_dict_f(pl_id):
+    s="select * from main_data where player_id='"+str(pl_id)+"';"
+    cur.execute(s)
+    d=cur.fetchall()
+    date=pd.DataFrame.from_dict(d)
+    date=date[[2,3]]
+    date=date.drop_duplicates(subset={2,3})
+    date=date.rename(columns={2:'start_date',3:'end_date'})
+    date_dict=date.to_dict(orient='records')
+    return date_dict
+
+# function to export different dfs in one excel file having 
+def dfs_tabs(df_list, sheet_list, file_name):
+    writer = pd.ExcelWriter(file_name,engine='xlsxwriter')   
+    for dataframe, sheet in zip(df_list, sheet_list):
+        dataframe.to_excel(writer, sheet_name=sheet, startrow=0 , startcol=0, index=False)   
+    writer.save()
+    
+def rand_str():
+    N = 7
+    res = ''.join(random.choices(string.ascii_uppercase +
+                                 string.digits, k=N))
+    return res
+
+#connect to sql server
+db = pymysql.connect(
+        host='127.0.0.1',
+        port=3306,
+        user='redroot', 
+        password = "seer#123",
+        db='content_data',
+        ssl = {'ssl':{'tls': True}}
+        )
+
+cur= db.cursor()
+
+def upload_resumable1(file_name):
+    # Creating a public client app, Aquire an access token for the user and set the header for API calls
+    cognos_to_onedrive = msal.PublicClientApplication(CLIENT_ID, authority=AUTHORITY_URL)
+    token = cognos_to_onedrive.acquire_token_by_username_password(USERNAME,PASSWORD,SCOPES)
+    header = {'Authorization': 'Bearer {}'.format(token['access_token'])}
+    # download 
+    response = requests.get('{}/{}/me/drive/root:/Export Templates'.format(RESOURCE_URL,API_VERSION) + '/' + file_name + ':/content', headers=header)
+
+    return response.content
+
+def upload_resumable(local_file_name,file_name):
+    # Creating a public client app, Aquire a access token for the user and set the header for API calls
+    cognos_to_onedrive = msal.PublicClientApplication(CLIENT_ID, authority=AUTHORITY_URL)
+    token = cognos_to_onedrive.acquire_token_by_username_password(USERNAME,PASSWORD,SCOPES)
+    headers = {'Authorization': 'Bearer {}'.format(token['access_token'])}
+    
+    onedrive_destination = '{}/{}/me/drive/root:/Data backend check/BPC'.format(RESOURCE_URL,API_VERSION)  #onedrive location to upload the local file
+    p = '/Users/shahzmaalif/Documents/excel_files/'+local_file_name
+#     p='C:/Users/KajalVerma/OneDrive - Redseer Management Consulting Private Limited/Data backend check/trial/'+local_file_name
+    file_data = open(p, 'rb')
+    file_path = p
+    file_size = os.stat(file_path).st_size
+
+    if file_size < 4100000:
+        #Perform is simple upload to the API
+        r = requests.put(onedrive_destination+"/"+file_name+":/content", data=file_data, headers=headers)
+
+def download_url(file_name):
+    # Creating a public client app, Aquire an access token for the user and set the header for API calls
+    cognos_to_onedrive = msal.PublicClientApplication(CLIENT_ID, authority=AUTHORITY_URL)
+    token = cognos_to_onedrive.acquire_token_by_username_password(USERNAME,PASSWORD,SCOPES)
+    header = {'Authorization': 'Bearer {}'.format(token['access_token'])}
+    # download
+    response = requests.get('{}/{}/me/drive/root:/Data backend check/BPC'.format(RESOURCE_URL,API_VERSION) + '/' + file_name + ':/content', headers=header)
+
+
+    return response.url
+
+def name_dict(req_player):
+    pl_name_dict={}
+    for pl in req_player:
+        s="select player_name from player where player_id='"+str(pl)+"';"
+        cur.execute(s)
+        name=cur.fetchall()
+        name=pd.DataFrame(name)
+        req_name=name.iloc[0,0]
+        pl_name_dict[pl]=req_name
+    return pl_name_dict
+
+def temp_dict(req_player):
+    pl_temp_dict={}
+    for pl in req_player:
+        s="select template_name from player where player_id='"+str(pl)+"';"
+        cur.execute(s)
+        name=cur.fetchall()
+        name=pd.DataFrame(name)
+        req_name=name.iloc[0,0]
+        pl_temp_dict[pl]=req_name
+    return pl_temp_dict
+
+## template required
+def req_template(name):
+    yls= upload_resumable1(name)
+    df_1=pd.read_excel(yls,"Sheet1", header=None, index_col=False)
+    return df_1
 
 # Create your views here.
 class UserViewSet(viewsets.ModelViewSet):
@@ -144,12 +294,14 @@ class LoginApi(CreateAPIView):
             )
             msg.content_subtype = "html"
             mail_status = msg.send()
-            # if mobile_num:
-            #     message = twilio_client.messages.create(
-            #                 body=f'Your verification code is 【{OTP}】. It is valid for 3 min',
-            #                 from_='+18775655473',
-            #                 to=str(mobile_num)
-            #             )
+            print('email=', email)
+            print('mail=',mail_status)
+            if mobile_num:
+                message = twilio_client.messages.create(
+                            body=f'Your verification code is 【{OTP}】. It is valid for 3 min',
+                            from_='+18775655473',
+                            to=str(mobile_num)
+                        )
             if mail_status==0:
                 return Response({"msg": " Failed to send mail "}, status=status.HTTP_400_BAD_REQUEST)
             else:
@@ -266,7 +418,7 @@ class MSAccessTokenAPI(CreateAPIView):
         report_name = query_params['rep']
         email = query_params['email']
         url = "https://login.microsoftonline.com/common/oauth2/token"
-        payload = "grant_type=password\r\n&username=digital@redseerconsulting.com\r\n&password=Waj179490\r\n&client_id=a9826bb1-7b52-4b3f-80f2-2ffa4d1cd578\r\n&client_secret=kIb8Q~EYAnhv274vUvwWjAVIbEiFSR5ENjhavcNe\r\n&resource=https://analysis.windows.net/powerbi/api"
+        payload = "grant_type=password\r\n&username=1mg@redseerconsulting.com\r\n&password=Waj179490\r\n&client_id=a9826bb1-7b52-4b3f-80f2-2ffa4d1cd578\r\n&client_secret=kIb8Q~EYAnhv274vUvwWjAVIbEiFSR5ENjhavcNe\r\n&resource=https://analysis.windows.net/powerbi/api"
         headers = {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Cookie': 'fpc=Aus9rQPMtNtLkL7XzywalRLdloFgAQAAABHzetoOAAAA; stsservicecookie=estsfd; x-ms-gateway-slice=estsfd'
@@ -543,3 +695,88 @@ class MicrosoftLoginApi(APIView):
                     print(token)
                     # passand check token value
                     return Response({'token':token.key,'pseudo_email':company_email, 'client_id':company_client_id}, status=status.HTTP_201_CREATED)
+
+class ExcelLinkApi(APIView):
+    
+    def get(self, request, *args, **kwargs):
+        # email = self.request.query_params['email']
+        # client_id = models.ClientModel.objects.filter(company_email = email)[0].id
+        client_id = self.request.query_params['client_id']
+        report_name  = self.request.query_params['report_name']
+        report_id = models.ReportModel.objects.filter(report_name = report_name)[0].id
+        print(report_name, report_id, client_id)
+        report_id = 1
+        player_queryset = models.ReportAccessModel.objects.filter(client_id = client_id, report_id = report_id)[0].players.all()
+        print(player_queryset)
+        company_list=  [i.player_id for i in player_queryset]
+        print(company_list)
+        def req_output(req_player):
+            os.chdir('/Users/shahzmaalif/Documents/excel_files/')
+            pl_name_dict=name_dict(req_player)   #makes pl ids and name dict from input player_ids
+            pl_temp_dict=temp_dict(req_player)   #makes pl_ids and their corresponding template name dict from input player_ids
+            
+            dfs=[]
+            sheets=[]
+            
+            for key, value in pl_name_dict.items():
+                pl_id=key
+                sheet=value
+                name=pl_temp_dict[pl_id]
+                file_name = name+".xlsx"                     #data File name
+                df_1=req_template(file_name)  #current player template
+                date_dict=date_dict_f(pl_id)   #date list for the player , coming from function
+                
+                s="select * from main_data where player_id='"+str(pl_id)+"';"
+                cur.execute(s)
+                d=cur.fetchall()
+                dat=pd.DataFrame(d)
+                dat=dat[[1,2,3,4,5]]
+                dat=dat.rename(columns={1:"pl_id",2:"start_date",3:"end_date",4:"par_id",5:"value"})
+                dat['start_date']=dat['start_date'].apply(str)
+                dat['end_date']=dat['end_date'].apply(str)
+                
+                c=3
+                df_1[c]=" "
+                for i in date_dict:
+                    sd=i['start_date']
+                    ed=i['end_date']
+                    ed=str(ed)
+                    sd=str(sd)
+                    #print(sd, date_conversion(sd))
+                    df_1.iat[0,c]=date_conversion(sd)    #date text conversion
+                    N=len(df_1)
+                    for j in range(1,N):
+                        par_id=df_1.iat[j,0]
+                        #print(par_id)
+                        if str(par_id)=='nan':
+                            continue
+
+                        z=dat[(dat["pl_id"] == pl_id) & (dat["start_date"] == str(sd))& (dat["end_date"] == str(ed))& (dat["par_id"] == par_id)]    
+                        if len(z)!=0:
+                            val=z.iloc[0,4]
+                            #print(val)
+                            df_1.iloc[j,c]=val
+
+                    c=c+1
+                    df_1[c]=" "
+
+                df_1.columns = df_1.iloc[0]
+                df_1=df_1.drop(df_1.index[0])
+                df_1 = df_1.drop('par_id', axis=1)
+
+                dfs.append(df_1)
+                sheets.append(sheet)
+            
+            ran_name=rand_str()
+            sheet_ran_name = ran_name+".xlsx"
+
+            dfs_tabs(dfs, sheets, sheet_ran_name)      #it will upload the output file in local location
+            
+            ran_name2=rand_str()
+            final_output_name = ran_name2+".xlsx"
+            upload_resumable(sheet_ran_name,final_output_name) #it will upload local to onedrive folder
+            download_link=download_url(final_output_name)  #it will give download url for the onedrive excel
+            return download_link   
+        link = req_output(company_list)
+
+        return Response({'excel_link': link},  status=status.HTTP_200_OK)

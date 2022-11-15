@@ -33,6 +33,19 @@ class ClientModel(models.Model):
         managed = True
         db_table = 'ClientModel'
 
+class Player(models.Model):
+    player_id = models.AutoField(primary_key=True, auto_created=True)
+    player_name = models.CharField(max_length=45)
+    industry_id = models.IntegerField(default=3) #is called industry
+    powerbi_page = models.CharField(max_length=2000)
+
+    def __str__(self):
+        return self.player_name
+
+    class Meta:
+        managed = False
+        db_table = 'player'
+
 class ReportModel(models.Model):
     id = models.AutoField(primary_key=True)
     report_name = models.CharField(max_length=100)
@@ -42,6 +55,9 @@ class ReportModel(models.Model):
 
 # will not use arrayfields as they are suupported by postgres only. Report url is embed url. report id  
 # needed in report page . drop dataset id. to get emebed token we need to use report id.
+# is subsciption model
+# id form reportacces model and player  toget acces fror various. existing admin report accesmodel inline make it multiselect
+# report acess model 1 to many field fpr players
 class ReportAccessModel(models.Model):
     id = models.AutoField(primary_key=True)
     # email = models.EmailField(max_length=100)  #real email here which is granted acess
@@ -49,16 +65,15 @@ class ReportAccessModel(models.Model):
     client_id = models.ForeignKey(ClientModel, on_delete=models.CASCADE)
     start_date = models.DateField(default=datetime.date.today, blank=True, null=True)
     end_date = models.DateField(default=get_deadline, blank=True, null=True)
-
+    players = models.ManyToManyField(Player)
     # report_name = models.CharField(max_length=100)
     # ms_report_id = models.UUIDField()
     # dataset_id = models.UUIDField()
     # report_url = models.CharField(max_length=600)
     # embed_url = models.CharField(max_length=600)
     
-    # def __str__(self):
-    #     return self.report_id
-
+    def __str__(self):
+        return str(self.client_id)
     class Meta:
         managed = True
         db_table = 'ReportAccessModel'
@@ -74,16 +89,6 @@ class CompanyDomainModel(models.Model):
     class Meta:
         managed = True
         db_table = 'CompanyDomainModel'
-
-class Player(models.Model):
-    player_id = models.AutoField(primary_key=True, auto_created=True)
-    player_name = models.CharField(max_length=45)
-    industry_id = models.IntegerField(default=3) #is called industry
-    powerbi_page = models.CharField(max_length=2000)
-
-    class Meta:
-        managed = False
-        db_table = 'player'
 
 class ReportPlayerModel(models.Model):
     id = models.AutoField(primary_key=True)

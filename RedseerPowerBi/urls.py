@@ -25,4 +25,4 @@ urlpatterns = [
     path('auth/', obtain_auth_token),
     path('', include('LoginAPI.urls')),
     # path('microsoft/', include('microsoft_auth.urls', namespace='microsoft')),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
