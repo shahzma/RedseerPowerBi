@@ -43,6 +43,10 @@ import random
 import requests
 import json
 import msal
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 GOOGLE_ID_TOKEN_INFO_URL = 'https://www.googleapis.com/oauth2/v3/tokeninfo'
 GOOGLE_ACCESS_TOKEN_OBTAIN_URL = 'https://oauth2.googleapis.com/token'
@@ -228,9 +232,11 @@ class CompanyDomainLCView(ListCreateAPIView):
 class LoginApi(CreateAPIView):
     # get otp  and send it to user when he clicks submit. OTP valid for  minutes
     def get(self, request):
-        # check i fphone exists
-        account_sid = 'AC9bee304dbdd07c29504727cf6726a873'
-        auth_token = '6af5d155c60e9aa0801380cecce6d597'
+        # check ifphone exists
+        # account_sid = 'AC9bee304dbdd07c29504727cf6726a873'
+        account_sid = os.getenv("account_sid")
+        auth_token = os.getenv("auth_token")
+        # auth_token = '6af5d155c60e9aa0801380cecce6d597'
         twilio_client = Client(account_sid, auth_token)
         # totp = pyotp.TOTP('base32secret3232', interval=240)
         # OTP = totp.now()
@@ -296,7 +302,7 @@ class LoginApi(CreateAPIView):
             mail_status = msg.send()
             print('email=', email)
             print('mail=',mail_status)
-            if mobile_num:
+            if False:
                 message = twilio_client.messages.create(
                             body=f'Your verification code is 【{OTP}】. It is valid for 3 min',
                             from_='+18775655473',
@@ -699,17 +705,31 @@ class MicrosoftLoginApi(APIView):
 class ExcelLinkApi(APIView):
     
     def get(self, request, *args, **kwargs):
-        # email = self.request.query_params['email']
-        # client_id = models.ClientModel.objects.filter(company_email = email)[0].id
+        # print('acount_sid=',os.getenv("account_sid"))
         client_id = self.request.query_params['client_id']
         report_name  = self.request.query_params['report_name']
-        report_id = models.ReportModel.objects.filter(report_name = report_name)[0].id
+        report_model_object = models.ReportModel.objects.filter(report_name = report_name)[0]
+        report_id = report_model_object.id
         print(report_name, report_id, client_id)
-        report_id = 1
-        player_queryset = models.ReportAccessModel.objects.filter(client_id = client_id, report_id = report_id)[0].players.all()
-        print(player_queryset)
+        # report_id = 1
+        report_access_object = models.ReportAccessModel.objects.filter(client_id = client_id, report_id = report_id)[0]
+        player_queryset = report_access_object.players.all()
+        start_date = report_access_object.start_date
+        end_date = report_access_object.end_date
+        # print(start_date, end_date)
+        # date_dict=date_dict_f(165)   #date list for the player , coming from function
+        # for i in date_dict:
+        #     if start_date is not None:
+        #         if str(i['start_date'])<str(start_date):
+        #             del(i['start_date'])
+        #             del(i['end_date'])
+        #     if end_date is not None:
+        #         if str(i['end_date'])>str(end_date):
+        #             del(i['start_date'])
+        #             del(i['end_date'])
+        # date_dict = list(filter(None, date_dict))
+        # print('date_dict=', date_dict)
         company_list=  [i.player_id for i in player_queryset]
-        print(company_list)
         def req_output(req_player):
             os.chdir('/Users/shahzmaalif/Documents/excel_files/')
             pl_name_dict=name_dict(req_player)   #makes pl ids and name dict from input player_ids
@@ -725,7 +745,20 @@ class ExcelLinkApi(APIView):
                 file_name = name+".xlsx"                     #data File name
                 df_1=req_template(file_name)  #current player template
                 date_dict=date_dict_f(pl_id)   #date list for the player , coming from function
-                
+
+                # date filter 
+                for i in date_dict:
+                    if start_date is not None:
+                        if str(i['start_date'])<str(start_date):
+                            del(i['start_date'])
+                            del(i['end_date'])
+                    if end_date is not None:
+                        if str(i['end_date'])>str(end_date):
+                            del(i['start_date'])
+                            del(i['end_date'])
+                date_dict = list(filter(None, date_dict))
+                #date_filter_end 
+
                 s="select * from main_data where player_id='"+str(pl_id)+"';"
                 cur.execute(s)
                 d=cur.fetchall()
