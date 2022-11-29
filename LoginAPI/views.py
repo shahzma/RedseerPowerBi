@@ -62,6 +62,16 @@ USERNAME = 'kajalverma@redseerconsulting.com' #Office365 user's account username
 PASSWORD = 'jingalala#@123R'
 SCOPES = ['Sites.ReadWrite.All','Files.ReadWrite.All'] # Add other scopes/permissions as needed.
 
+#connect to sql server
+db = pymysql.connect(
+        host='127.0.0.1',
+        port=3306,
+        user='redroot', 
+        password = "seer#123",
+        db='content_data',
+        ssl = {'ssl':{'tls': True}}
+        )
+
 
 def start_end_date(month):
     datetime_object = datetime.strptime(month[:3], "%b")
@@ -84,14 +94,19 @@ def date_conversion(a):
 
 def date_dict_f(pl_id):
     s="select * from main_data where player_id='"+str(pl_id)+"';"
+    cur= db.cursor()
     cur.execute(s)
     d=cur.fetchall()
+    cur.close()
     date=pd.DataFrame.from_dict(d)
-    date=date[[2,3]]
-    date=date.drop_duplicates(subset={2,3})
-    date=date.rename(columns={2:'start_date',3:'end_date'})
-    date_dict=date.to_dict(orient='records')
-    return date_dict
+    if date.empty == False:
+        date=date[[2,3]]
+        date=date.drop_duplicates(subset={2,3})
+        date=date.rename(columns={2:'start_date',3:'end_date'})
+        date_dict=date.to_dict(orient='records')
+        return date_dict
+    else:
+        return {}
 
 # function to export different dfs in one excel file having 
 def dfs_tabs(df_list, sheet_list, file_name):
@@ -106,17 +121,7 @@ def rand_str():
                                  string.digits, k=N))
     return res
 
-#connect to sql server
-db = pymysql.connect(
-        host='127.0.0.1',
-        port=3306,
-        user='redroot', 
-        password = "seer#123",
-        db='content_data',
-        ssl = {'ssl':{'tls': True}}
-        )
-
-cur= db.cursor()
+# cur= db.cursor()
 
 def upload_resumable1(file_name):
     # Creating a public client app, Aquire an access token for the user and set the header for API calls
@@ -160,8 +165,10 @@ def name_dict(req_player):
     pl_name_dict={}
     for pl in req_player:
         s="select player_name from player where player_id='"+str(pl)+"';"
+        cur= db.cursor()
         cur.execute(s)
         name=cur.fetchall()
+        cur.close()
         name=pd.DataFrame(name)
         req_name=name.iloc[0,0]
         pl_name_dict[pl]=req_name
@@ -171,8 +178,10 @@ def temp_dict(req_player):
     pl_temp_dict={}
     for pl in req_player:
         s="select template_name from player where player_id='"+str(pl)+"';"
+        cur= db.cursor()
         cur.execute(s)
         name=cur.fetchall()
+        cur.close()
         name=pd.DataFrame(name)
         req_name=name.iloc[0,0]
         pl_temp_dict[pl]=req_name
@@ -606,7 +615,7 @@ class GoogleLoginApi(APIView):
             token = Token.objects.create(user = user)
             print('token=',token)
             company_email = models.ClientModel.objects.filter(id=user_client_id)[0].company_email
-            response = redirect(f'http://localhost:3000/MainPage/?backend_token={token}&client_id={user_client_id}&email={email}&pseudo_email={company_email}')
+            response = redirect(f'https://api.benchmarks.digital/MainPage/?backend_token={token}&client_id={user_client_id}&email={email}&pseudo_email={company_email}')
             return response
         elif models.CompanyDomainModel.objects.filter(domain_name=email_company_name).exists():
             username = email.split('@')[0]
@@ -623,7 +632,7 @@ class GoogleLoginApi(APIView):
                 user.set_password('123')
                 user.save()
                 token = Token.objects.create(user=user)
-                response = redirect(f'http://localhost:3000/MainPage/?backend_token={token}&client_id={company_client_id}&email={email}&pseudo_email={company_email}')
+                response = redirect(f'https://api.benchmarks.digital/MainPage/?backend_token={token}&client_id={company_client_id}&email={email}&pseudo_email={company_email}')
                 return response
         else:
             username = email.split('@')[0]
@@ -634,7 +643,7 @@ class GoogleLoginApi(APIView):
                 user.set_password('123')
                 user.save()
                 token = Token.objects.create(user=user)
-                response = redirect(f'http://localhost:3000/MainPage/?backend_token={token}&client_id={company_client_id}&email={email}&pseudo_email={company_email}')
+                response = redirect(f'https://api.benchmarks.digital/MainPage/?backend_token={token}&client_id={company_client_id}&email={email}&pseudo_email={company_email}')
                 return response
 
 class MicrosoftLoginApi(APIView):
@@ -716,19 +725,6 @@ class ExcelLinkApi(APIView):
         player_queryset = report_access_object.players.all()
         start_date = report_access_object.start_date
         end_date = report_access_object.end_date
-        # print(start_date, end_date)
-        # date_dict=date_dict_f(165)   #date list for the player , coming from function
-        # for i in date_dict:
-        #     if start_date is not None:
-        #         if str(i['start_date'])<str(start_date):
-        #             del(i['start_date'])
-        #             del(i['end_date'])
-        #     if end_date is not None:
-        #         if str(i['end_date'])>str(end_date):
-        #             del(i['start_date'])
-        #             del(i['end_date'])
-        # date_dict = list(filter(None, date_dict))
-        # print('date_dict=', date_dict)
         company_list=  [i.player_id for i in player_queryset]
         def req_output(req_player):
             os.chdir('/Users/shahzmaalif/Documents/excel_files/')
@@ -739,34 +735,45 @@ class ExcelLinkApi(APIView):
             sheets=[]
             
             for key, value in pl_name_dict.items():
+                print(key)
                 pl_id=key
                 sheet=value
                 name=pl_temp_dict[pl_id]
                 file_name = name+".xlsx"                     #data File name
                 df_1=req_template(file_name)  #current player template
                 date_dict=date_dict_f(pl_id)   #date list for the player , coming from function
-
                 # date filter 
                 for i in date_dict:
                     if start_date is not None:
-                        if str(i['start_date'])<str(start_date):
-                            del(i['start_date'])
-                            del(i['end_date'])
+                        if str(i.get('start_date'))<str(start_date):
+                            try:
+                                del(i['start_date'])
+                                del(i['end_date'])
+                            except:
+                                pass
                     if end_date is not None:
-                        if str(i['end_date'])>str(end_date):
-                            del(i['start_date'])
-                            del(i['end_date'])
+                        if str(i.get('end_date'))>str(end_date):
+                            try:
+                                del(i['start_date'])
+                                del(i['end_date'])
+                            except:
+                                pass
                 date_dict = list(filter(None, date_dict))
                 #date_filter_end 
 
                 s="select * from main_data where player_id='"+str(pl_id)+"';"
+                cur= db.cursor()
                 cur.execute(s)
                 d=cur.fetchall()
+                cur.close()
                 dat=pd.DataFrame(d)
-                dat=dat[[1,2,3,4,5]]
-                dat=dat.rename(columns={1:"pl_id",2:"start_date",3:"end_date",4:"par_id",5:"value"})
-                dat['start_date']=dat['start_date'].apply(str)
-                dat['end_date']=dat['end_date'].apply(str)
+                if dat.empty == False:
+                    dat=dat[[1,2,3,4,5]]
+                    dat=dat.rename(columns={1:"pl_id",2:"start_date",3:"end_date",4:"par_id",5:"value"})
+                    dat['start_date']=dat['start_date'].apply(str)
+                    dat['end_date']=dat['end_date'].apply(str)
+                else:
+                    dat = {}
                 
                 c=3
                 df_1[c]=" "
@@ -792,12 +799,15 @@ class ExcelLinkApi(APIView):
 
                     c=c+1
                     df_1[c]=" "
+                print(df_1)
+                try:
+                    df_1.columns = df_1.iloc[0]
+                    df_1=df_1.drop(df_1.index[0])
+                    df_1 = df_1.drop('par_id', axis=1)
 
-                df_1.columns = df_1.iloc[0]
-                df_1=df_1.drop(df_1.index[0])
-                df_1 = df_1.drop('par_id', axis=1)
-
-                dfs.append(df_1)
+                    dfs.append(df_1)
+                except:
+                    pass
                 sheets.append(sheet)
             
             ran_name=rand_str()
