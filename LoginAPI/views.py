@@ -54,20 +54,20 @@ GOOGLE_USER_INFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo'
 
 CLIENT_ID = 'c59ec6d5-8e5c-4759-a8b9-42250ff91551'
 TENANT_ID= '00a9ff8c-9830-4847-ae51-4579ec092cb4'
-CLIENT_SECRET = 'db1e3ed9-5b0f-4669-b250-525558bc5fdd'
+CLIENT_SECRET = os.getenv('CLIENT_SECRET')
 AUTHORITY_URL = 'https://login.microsoftonline.com/{}'.format(TENANT_ID)
 RESOURCE_URL = 'https://graph.microsoft.com/'
 API_VERSION = 'v1.0'
 USERNAME = 'kajalverma@redseerconsulting.com' #Office365 user's account username
-PASSWORD = 'jingalala#@123R'
+PASSWORD = os.getenv('PASSWORD')
 SCOPES = ['Sites.ReadWrite.All','Files.ReadWrite.All'] # Add other scopes/permissions as needed.
 
 #connect to sql server
 db = pymysql.connect(
-        host='127.0.0.1',
+        host=os.getenv("host"),
         port=3306,
-        user='redroot', 
-        password = "seer#123",
+        user=os.getenv('user'), 
+        password = os.getenv('host_password'),
         db='content_data',
         ssl = {'ssl':{'tls': True}}
         )
@@ -140,7 +140,7 @@ def upload_resumable(local_file_name,file_name):
     headers = {'Authorization': 'Bearer {}'.format(token['access_token'])}
     
     onedrive_destination = '{}/{}/me/drive/root:/Data backend check/BPC'.format(RESOURCE_URL,API_VERSION)  #onedrive location to upload the local file
-    p = '/Users/shahzmaalif/Documents/excel_files/'+local_file_name
+    p = os.getenv("loc")+local_file_name
 #     p='C:/Users/KajalVerma/OneDrive - Redseer Management Consulting Private Limited/Data backend check/trial/'+local_file_name
     file_data = open(p, 'rb')
     file_path = p
@@ -727,7 +727,7 @@ class ExcelLinkApi(APIView):
         end_date = report_access_object.end_date
         company_list=  [i.player_id for i in player_queryset]
         def req_output(req_player):
-            os.chdir('/Users/shahzmaalif/Documents/excel_files/')
+            os.chdir(os.getenv("loc"))
             pl_name_dict=name_dict(req_player)   #makes pl ids and name dict from input player_ids
             pl_temp_dict=temp_dict(req_player)   #makes pl_ids and their corresponding template name dict from input player_ids
             
