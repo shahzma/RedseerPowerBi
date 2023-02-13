@@ -4,7 +4,7 @@ from dataclasses import field
 import re
 from rest_framework.authtoken.models import Token
 from rest_framework import serializers
-from .models import ClientModel, ReportAccessModel, User, ReportModel, CompanyDomainModel, Player, ReportPagesModel, ReportPlayerModel, IconModel
+from .models import ClientModel, ReportAccessModel, User, ReportModel, CompanyDomainModel, Player, ReportPagesModel, ReportPlayerModel, IconModel, TagModel, UserPopupModel, NewReportModel, NewReportPagesModel
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -30,6 +30,19 @@ class ReportModelSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
+        request = self.context['request']
+        report_player_qs = ReportPlayerModel.objects.filter(report = rep['id'])
+        li=[]
+        for i in report_player_qs:
+            li.append(i.player)
+        rep['players'] = [i.player_name for i in li]
+        client_id = request.query_params.get('client_id')
+        if client_id:
+            bought_reports_qs = ReportAccessModel.objects.filter(client_id = client_id)
+            for i in bought_reports_qs:
+                if int(rep['id']) == int(i.report_id.id):
+                    rep['bought'] =True
+        # print('rep =',rep)
         return rep
 
     class Meta:
@@ -42,6 +55,17 @@ class ReportAccessSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
+        request = self.context['request']
+        client_id = request.query_params.get('client_id')
+        if client_id:
+            # rep['cl_id'] = client_id
+            # if rep['client_id'] == int(client_id):
+            #     rep['bought'] = True
+            # else:
+            #     rep['bought'] = False
+            print('cid=', client_id)
+        else:
+            print('no cid')
         report_id = rep['report_id']
         report_obj = ReportModel.objects.filter(id = report_id)[0]
         report_name = report_obj.report_name
@@ -92,11 +116,71 @@ class IconSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
 class ReportPagesSerializer(serializers.ModelSerializer):
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        rep['key'] = rep['id']
+        rep['label'] = rep['page_name']
+        return rep
+
     class Meta:
         model = ReportPagesModel
-        fields =['id','page_name','parent','icon', 'link','order']
+        fields =['id','page_name','parent','icon', 'link','order','url', 'powerbi_report_id', 'report_name','same_page']
         read_only_fields = ['id']
 
 class InputSerializer(serializers.Serializer):
         code = serializers.CharField(required=False)
         error = serializers.CharField(required=False)
+
+class TagReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReportModel
+        fields = ['report_name']
+
+
+class TagSerializer(serializers.ModelSerializer):
+
+    report_val = TagReportSerializer(source='reports', many=True, read_only=True)
+
+    def to_representation(self, instance):
+        # print(instance)
+        rep = super().to_representation(instance)
+        li = []
+        for i in range(len(rep['report_val'])):
+            li = li+[rep['report_val'][i]['report_name']]
+        rep['reports'] = li
+        return rep
+
+    class Meta:
+        model = TagModel
+        fields = ['id', 'tag_name', 'report_val']
+        read_only_fields = ['id']
+
+class UserPopupSerializer(serializers.ModelSerializer):
+
+    def to_representation(self, instance):
+        return super().to_representation(instance)
+
+    class Meta:
+        model = UserPopupModel
+        fields  = ['id', 'name', 'phone', 'email', 'message']
+        read_only_fields = ['id']
+
+class NewReportSerializer(serializers.ModelSerializer):
+    def to_representation(self, instance):
+        return super().to_representation(instance)
+
+    class Meta:
+        model = NewReportModel
+        fields = '__all__'
+        read_only_fields = ['id']
+
+class NewReportPagesSerializer(serializers.ModelSerializer):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        return data
+
+    class Meta:
+        model = NewReportPagesModel
+        fields = '__all__'
+        read_only_fields = ['id']

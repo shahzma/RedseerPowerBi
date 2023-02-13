@@ -4,7 +4,7 @@ from django.contrib import admin
 from django.urls import path
 from django.conf.urls import include
 from .views import LogOutApi, LoginApi, UserViewSet, CompanyLCView, ReportAccessLCView, ReportAccessRUDView, ReportLCView,CompanyDomainLCView,MSAccessTokenAPI, PlayerLCView, ReportPageApi\
-    ,ReportPlayerLCView, IconLCView, ValidateCurrentToken, GoogleLoginApi, MicrosoftLoginApi, ExcelLinkApi
+    ,ReportPlayerLCView, IconLCView, ValidateCurrentToken, GoogleLoginApi, MicrosoftLoginApi, ExcelLinkApi, TagLCView, UserPopupLCView, NewReportAPI, NewReportPagesLCView
 
 
 router = routers.DefaultRouter()
@@ -74,6 +74,21 @@ excellink_urls = [
     path('', ExcelLinkApi.as_view(), name = 'l')
 ]
 
+tag_urls = [
+    path('', TagLCView.as_view(), name = 'l')
+]
+
+userpopup_urls = [
+    path('', UserPopupLCView.as_view(), name = 'l')
+]
+
+newreport_urls = [
+    path('', NewReportAPI.as_view(), name = 'l')
+]
+
+newreportpages_urls = [
+    path('', NewReportPagesLCView.as_view(), name='l')
+]
 urlpatterns = [
     path('', include(router.urls)),
     path('authorise/', include(authUrls), name='authorise'),
@@ -90,5 +105,9 @@ urlpatterns = [
     path('validateToken/', include(validate_urls), name = 'validate'),
     path('api/v1/auth/login/google/', include(google_urls), name = 'google'),
     path('login/ms/', include(ms_urls), name = 'ms'),
-    path('excel_link/', include(excellink_urls), name = 'excel')
+    path('excel_link/', include(excellink_urls), name = 'excel'),
+    path('tags/', include(tag_urls), name = 'tag'),
+    path('userpopup/', include(userpopup_urls), name = 'userpopup'),
+    path('newreports/', include(newreport_urls), name = 'newreports'),
+    path('newreportpages/', include(newreportpages_urls), name='newreportpages')
     ]

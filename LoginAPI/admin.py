@@ -3,7 +3,7 @@ from django_mptt_admin.admin import DjangoMpttAdmin
 from django.contrib.auth.admin import UserAdmin
 
 # Register your models here.
-from .models import ClientModel, ReportModel, ReportAccessModel,CompanyDomainModel,ReportPlayerModel, IconModel,ReportPagesModel,User
+from .models import ClientModel, ReportModel, ReportAccessModel,CompanyDomainModel,ReportPlayerModel, IconModel,ReportPagesModel,User, NewReportPagesModel, NewReportModel
 
 # admin.site.register(User)
 # admin.site.register(ClientModel)
@@ -12,6 +12,7 @@ admin.site.register(ReportAccessModel)
 admin.site.register(CompanyDomainModel)
 admin.site.register(ReportPlayerModel)
 admin.site.register(IconModel)
+admin.site.register(NewReportPagesModel)
 # admin.site.register(ReportPagesModel)
 
 class UserAdmin(admin.TabularInline):
@@ -25,6 +26,14 @@ class ReportPagesAdmin(DjangoMpttAdmin):
 
 
 admin.site.register(ReportPagesModel, ReportPagesAdmin)    
+
+
+class NewReportAdmin(DjangoMpttAdmin):
+        pass
+
+
+admin.site.register(NewReportModel, NewReportAdmin)  
+
 
 class ReportAccessAdmin(admin.TabularInline):
     model = ReportAccessModel
