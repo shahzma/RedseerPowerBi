@@ -295,7 +295,10 @@ class LoginApi(CreateAPIView):
         elif models.User.objects.filter(email=email).exists():
             user = models.User.objects.filter(email=email)
             user_client_id = user[0].client_id
-            company_email = models.ClientModel.objects.filter(id=user_client_id)[0].company_email
+            user_name = user[0].first_name
+            print(user[0].first_name)
+            client_obj =  models.ClientModel.objects.filter(id=user_client_id)[0]
+            company_email = client_obj.company_email
             print('company_email=', company_email)
             counter_val = user[0].counter
             hotp = pyotp.HOTP('base32secret3232')
@@ -315,7 +318,7 @@ class LoginApi(CreateAPIView):
             mail_status = msg.send()
             print('email=', email)
             print('mail=',mail_status)
-            if mobile_num:
+            if False:
                 message = twilio_client.messages.create(
                             body=f'Your verification code is 【{OTP}】. It is valid for 3 min',
                             from_='+18775655473',
@@ -324,7 +327,7 @@ class LoginApi(CreateAPIView):
             if mail_status==0:
                 return Response({"msg": " Failed to send mail "}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                return Response({'pseudo_email':company_email, 'client_id':user_client_id, 'unregistered':False}, status=status.HTTP_201_CREATED)
+                return Response({'pseudo_email':company_email, 'client_id':user_client_id, 'unregistered':False, 'user_name':user_name, 'otp_access':client_obj.otp_access}, status=status.HTTP_201_CREATED)
         else:
             company_client_id = 9
             company_email = 'nocompany@redseerconsulting.com'
@@ -860,9 +863,17 @@ class NewReportAPI(ListCreateAPIView):
             item = {
                 'key': node.pk,
                 'label': node.report_name,
+                'finalized': node.finalized,
+                'filter_value':node.filter_value,
+                'filter': node.filter,
+                'key_val': node.pk,
+                'node_type': node.node_type
             }
             children = node.get_children()
             if children:
+                if node.node_type == 'Platform_node':
+                    # Skip this node and all its children
+                    continue
                 item['nodes'] = self.get_tree_data(children)
             else:
                 item['nodes'] = []
@@ -870,12 +881,61 @@ class NewReportAPI(ListCreateAPIView):
         return data
 
     def get(self, request):
-        rep = self.request.query_params['rep']
-        root_nodes = models.NewReportModel.objects.filter(report_name= rep)
+        # rep = self.request.query_params['rep']
+        # need root_node to go anywhere in a tree
+        # root_nodes = models.NewReportModel.objects.filter(report_name= rep)
+        if 'rep' in self.request.query_params:
+            rep = self.request.query_params['rep']
+            root_nodes = models.NewReportModel.objects.filter(report_name=rep)
+        else:
+            root_nodes = models.NewReportModel.objects.filter(parent__isnull=True)
+
         tree_data = self.get_tree_data(root_nodes)
         res = tree_data
-
         return JsonResponse(res, safe=False)
+
+class NodeChildrenAPI(APIView):
+    def get(self, request, *args, **kwargs):
+        key =  self.request.query_params['key']
+        node = models.NewReportModel.objects.get(pk=key)
+
+        # get the immediate children of the node
+        data = []
+        children = node.get_children()
+        # iterate over the children
+        for child_node in children:
+            if child_node.node_type == 'Platform_node':
+                platform_children = child_node.get_children()
+                for platform_child in platform_children:
+                    # create a dictionary containing the relevant attributes of the platform child node
+                    platform_child_data = {
+                        'key': platform_child.pk,
+                        'label': platform_child.report_name,
+                        'finalized': platform_child.finalized,
+                        'filter_value':platform_child.filter_value,
+                        'filter': platform_child.filter,
+                        'key_val': platform_child.pk,
+                        'name': platform_child.report_name,
+                        'value': platform_child.report_name
+                    }
+                    # append the platform child node data to the data list
+                    data.append(platform_child_data)
+
+            # do something with each child node
+            else:
+                child_data = {
+                    'key': child_node.pk,
+                    'label': child_node.report_name,
+                    'finalized': child_node.finalized,
+                    'filter_value':child_node.filter_value,
+                    'filter': child_node.filter,
+                    'key_val': child_node.pk,
+                    'name': child_node.report_name,
+                    'value': child_node.report_name
+                }
+                # append the child node data to the data list
+                data.append(child_data)
+        return JsonResponse(data, safe=False)
 
 
 class NewReportPagesLCView(ListCreateAPIView):
@@ -943,3 +1003,58 @@ class NewReportPagesLCView(ListCreateAPIView):
                 res[j].embed=embed_token
                 res[j].save()
         return res
+
+
+class NewReportAccessTree(ListCreateAPIView):
+    queryset = models.NewReportAccessModel.objects
+    serializer_class = serializers.NewReportAccessSerializer
+    def get(self, request):
+        client_id  = self.request.query_params['client_id']
+        if client_id:
+            self.queryset = self.queryset.filter(client_id = client_id)
+        return self.queryset
+
+
+class UserCurrencyLCView(ListCreateAPIView):
+    queryset = models.UserCurrencyModel.objects
+    serializer_class = serializers.UserCurrencySerializer
+
+    def get_queryset(self):
+        query_params = self.request.query_params
+        email = query_params.get("email")
+        if email:
+            self.queryset = self.queryset.filter(email = email)
+        return self.queryset
+
+    def create(self, request, *args, **kwargs):
+        data = request.data
+        print(data)
+        try:
+            user_curr_obj = models.UserCurrencyModel.objects.get(email = data['email'], report = data['report'])
+            if data.get('currency'):
+                user_curr_obj.currency = data['currency']
+            if data.get('year'):
+                user_curr_obj.year = data['year']
+            user_curr_obj.save()
+        except:
+            user_curr_obj = models.UserCurrencyModel.objects.create(email = data['email'], report = data['report'], currency = data['currency'], year = data['year'])
+            user_curr_obj.save()
+        serializer = serializers.UserCurrencySerializer(user_curr_obj)
+        return Response(serializer.data)
+
+class NewReportAccessLCView(ListCreateAPIView):
+    queryset = models.NewReportAccessModel.objects
+    serializer_class = serializers.NewReportAccessSerializer
+
+    def get_queryset(self):
+        query_params = self.request.query_params
+        client_id = query_params.get("client_id")
+        # client_id = 1
+        if client_id:
+            # self.queryset = self.queryset.filter(client__id = client_id)
+            self.queryset = self.queryset.filter(client_id = client_id)
+        return self.queryset
+    
+class NewReportPageAccessLCView(ListCreateAPIView):
+    queryset = models.NewReportPageAccessModel.objects
+    serializer_class = serializers.NewReportPageAccessSerializer

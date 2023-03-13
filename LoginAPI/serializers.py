@@ -4,7 +4,7 @@ from dataclasses import field
 import re
 from rest_framework.authtoken.models import Token
 from rest_framework import serializers
-from .models import ClientModel, ReportAccessModel, User, ReportModel, CompanyDomainModel, Player, ReportPagesModel, ReportPlayerModel, IconModel, TagModel, UserPopupModel, NewReportModel, NewReportPagesModel
+from .models import ClientModel, ReportAccessModel, User, ReportModel, CompanyDomainModel, Player, ReportPagesModel, ReportPlayerModel, IconModel, TagModel, UserPopupModel, NewReportModel, NewReportPagesModel, UserCurrencyModel, NewReportAccessModel, NewReportPageAccessModel
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -184,3 +184,35 @@ class NewReportPagesSerializer(serializers.ModelSerializer):
         model = NewReportPagesModel
         fields = '__all__'
         read_only_fields = ['id']
+
+class UserCurrencySerializer(serializers.ModelSerializer):
+    def to_representation(self, instance):
+        return super().to_representation(instance)
+
+    class Meta:
+        model = UserCurrencyModel
+        fields = '__all__'
+        read_only_fields = ['id']
+
+class NewReportAccessSerializer(serializers.ModelSerializer):
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        rep['report_name']= NewReportModel.objects.filter(id = rep['report_id'])[0].report_name
+        return rep
+
+    class Meta:
+        model = NewReportAccessModel
+        fields = '__all__'
+        read_only_fields = ['id']
+
+
+class NewReportPageAccessSerializer(serializers.ModelSerializer):
+    def to_representation(self, instance):
+        return super().to_representation(instance)
+
+    class Meta:
+        model = NewReportPageAccessModel
+        fields = '__all__'
+        read_only_fields = ['id']
+
+        

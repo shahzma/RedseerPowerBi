@@ -25,6 +25,7 @@ class ClientModel(models.Model):
     name = models.CharField(max_length=100)
     company_email = models.EmailField(max_length=100) #pseudo email address 
     wildcard_mode = models.BooleanField(default=False)
+    otp_access = models.BooleanField(default=True)
 
     def __str__(self):
         return self.name
@@ -58,7 +59,11 @@ class NewReportModel(MPTTModel):
     id = models.AutoField(primary_key=True)
     report_name = models.CharField(max_length=100)
     parent = TreeForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children')
-
+    info = models.TextField(default=None, null=True, blank=True)
+    finalized = models.BooleanField(default=False)
+    filter = models.CharField(default = None, blank=True, null = True, max_length=200)
+    filter_value = models.CharField(default = None, blank=True, null = True, max_length=200)
+    node_type = models.CharField(default = None, blank=True, null = True, max_length=200)
     def __str__(self):
         return self.report_name
 
@@ -75,7 +80,7 @@ class NewReportPagesModel(models.Model):
     embed = models.TextField(default=None, null=True, blank=True)
     powerbi_report_id = models.CharField(max_length=200, default=None, null=True, blank=True)
     report_name = models.CharField(max_length=200, default=None, null=True, blank=True)
-    same_page = models.BooleanField(default=False)    
+    same_page = models.BooleanField(default=False)
 
     def __str__(self):
         return self.page_name
@@ -83,6 +88,20 @@ class NewReportPagesModel(models.Model):
     class Meta:
         managed = True
         db_table = 'new_report_pages'
+
+class UserCurrencyModel(models.Model):
+    id = models.AutoField(primary_key=True)
+    currency = models.CharField(max_length=200,default='USD', null=True, blank=True)
+    # report = models.ForeignKey('NewReportModel', on_delete=models.CASCADE)
+    report = models.CharField(max_length=200, default=None, null=True, blank=True)
+    email = models.CharField(max_length=200,default=None, null=True, blank=True)
+    year = models.CharField(max_length=200,default='FY', null=True, blank=True)
+    def __str__(self):
+        return self.email
+
+    class Meta:
+        managed = True
+        db_table = 'user_currency_model'
 
 # will not use arrayfields as they are suupported by postgres only. Report url is embed url. report id  
 # needed in report page . drop dataset id. to get emebed token we need to use report id.
@@ -113,7 +132,6 @@ class CompanyDomainModel(models.Model):
     id = models.AutoField(primary_key=True)
     domain_name = models.CharField(max_length=100)
     client_id = models.ForeignKey(ClientModel, on_delete=models.CASCADE)
-
     def __str__(self):
         return self.domain_name
     
@@ -178,6 +196,32 @@ class UserPopupModel(models.Model):
     class Meta:
         managed = True
         db_table = 'UserPopup_model'
+
+class NewReportAccessModel(models.Model):
+    id = models.AutoField(primary_key=True)
+    client_id = models.ForeignKey(ClientModel, on_delete=models.CASCADE)
+    report_id = models.ForeignKey(NewReportModel, on_delete = models.CASCADE)
+    start_date = models.DateField(default=datetime.date.today, blank=True, null=True)
+    end_date = models.DateField(default=get_deadline, blank=True, null=True)
+    players = models.ManyToManyField(Player, blank= True, null=True)
+    report_pages = models.ManyToManyField(NewReportPagesModel, blank=True, null=True)
+    def __str__(self):
+        return str(self.client_id)
+    class Meta:
+        managed = True
+        db_table = 'NewReportAccessModel'
+
+
+class NewReportPageAccessModel(models.Model):
+    id = models.AutoField(primary_key=True)
+    report_access_id = models.ForeignKey(NewReportAccessModel, on_delete=models.CASCADE)
+    page_id = models.ForeignKey(NewReportPagesModel, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.report_access_id)
+    class Meta:
+        managed = True
+        db_table = 'NewReportPageAccessModel'
 
 # class UserSession(models.Model):
 #     user = models.ForeignKey(ßsettings.AUTH_USER_MODEL, on_delete=models.CASCADE)

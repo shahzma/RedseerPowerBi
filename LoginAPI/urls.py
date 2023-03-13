@@ -4,7 +4,8 @@ from django.contrib import admin
 from django.urls import path
 from django.conf.urls import include
 from .views import LogOutApi, LoginApi, UserViewSet, CompanyLCView, ReportAccessLCView, ReportAccessRUDView, ReportLCView,CompanyDomainLCView,MSAccessTokenAPI, PlayerLCView, ReportPageApi\
-    ,ReportPlayerLCView, IconLCView, ValidateCurrentToken, GoogleLoginApi, MicrosoftLoginApi, ExcelLinkApi, TagLCView, UserPopupLCView, NewReportAPI, NewReportPagesLCView
+    ,ReportPlayerLCView, IconLCView, ValidateCurrentToken, GoogleLoginApi, MicrosoftLoginApi, ExcelLinkApi, TagLCView, UserPopupLCView, NewReportAPI, NewReportPagesLCView, UserCurrencyLCView,\
+         NewReportAccessLCView, NewReportPageAccessLCView, NewReportAccessTree, NodeChildrenAPI
 
 
 router = routers.DefaultRouter()
@@ -89,6 +90,23 @@ newreport_urls = [
 newreportpages_urls = [
     path('', NewReportPagesLCView.as_view(), name='l')
 ]
+
+usercurrency_urls = [
+    path('',  UserCurrencyLCView.as_view(), name="lc")
+]
+
+newreportaccess_urls = [
+    path('',  NewReportAccessLCView.as_view(), name="lc")
+]
+
+newreportaccesstree_urls = [
+    path('', NewReportAccessTree.as_view(), name='lc')
+]
+
+nodechildren_urls = [
+    path('', NodeChildrenAPI.as_view(), name = 'lc')
+]
+
 urlpatterns = [
     path('', include(router.urls)),
     path('authorise/', include(authUrls), name='authorise'),
@@ -109,5 +127,9 @@ urlpatterns = [
     path('tags/', include(tag_urls), name = 'tag'),
     path('userpopup/', include(userpopup_urls), name = 'userpopup'),
     path('newreports/', include(newreport_urls), name = 'newreports'),
-    path('newreportpages/', include(newreportpages_urls), name='newreportpages')
+    path('newreportpages/', include(newreportpages_urls), name='newreportpages'),
+    path('usercurrency/', include(usercurrency_urls), name='usercurrency'),
+    path('newreportaccess/', include(newreportaccess_urls), name = 'newreportacess'),
+    path('newreportaccesstree/', include(newreportaccesstree_urls), name = 'newreportacesstree'),
+    path('nodechildren/', include(nodechildren_urls), name = 'nodechildren')
     ]
