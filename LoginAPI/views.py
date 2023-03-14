@@ -880,6 +880,34 @@ class NewReportAPI(ListCreateAPIView):
             data.append(item)
         return data
 
+    def get_subbed_tree_data(self, nodes, client_id,li):
+        data = []
+        for node in nodes:
+            subscribed = False
+            # check if node's pk or name is subscribed by client_id if yes set sub to true
+            if node.pk in li:
+                subscribed = True
+            item = {
+                'key': node.pk,
+                'label': node.report_name,
+                'finalized': node.finalized,
+                'filter_value':node.filter_value,
+                'filter': node.filter,
+                'key_val': node.pk,
+                'node_type': node.node_type,
+                'subscribed':subscribed
+            }
+            children = node.get_children()
+            if children:
+                if node.node_type == 'Platform_node':
+                    # Skip this node and all its children
+                    continue
+                item['nodes'] = self.get_subbed_tree_data(children, client_id, li)
+            else:
+                item['nodes'] = []
+            data.append(item)
+        return data
+
     def get(self, request):
         # rep = self.request.query_params['rep']
         # need root_node to go anywhere in a tree
@@ -890,6 +918,15 @@ class NewReportAPI(ListCreateAPIView):
         else:
             root_nodes = models.NewReportModel.objects.filter(parent__isnull=True)
 
+        if 'client_id' in self.request.query_params:
+            client_id  = self.request.query_params['client_id']
+            qs = models.NewReportAccessModel.objects.filter(client_id = client_id)
+            li  = []
+            for i in qs:
+                li.append(i.report_id.id)
+            tree_data = self.get_subbed_tree_data(root_nodes, client_id, li)
+            res = tree_data
+            return JsonResponse(res, safe=False)
         tree_data = self.get_tree_data(root_nodes)
         res = tree_data
         return JsonResponse(res, safe=False)
@@ -937,6 +974,14 @@ class NodeChildrenAPI(APIView):
                 data.append(child_data)
         return JsonResponse(data, safe=False)
 
+class UserNodesAPI(APIView):
+    def get(self, request):
+        if 'client_id' in self.request.query_params:
+            client_id = self.request.query_params['client_id']
+            
+        tree_data = self.get_tree_data(root_nodes)
+        res = tree_data
+        return JsonResponse(res, safe=False)
 
 class NewReportPagesLCView(ListCreateAPIView):
     queryset = models.NewReportPagesModel.objects
