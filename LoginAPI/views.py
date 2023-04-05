@@ -1,7 +1,7 @@
 # from django.contrib.auth.signals import user_logged_in
 # from django.contrib.auth import authenticate, login, logout
 from http import client
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render
 from . import models, serializers
 from rest_framework import viewsets
@@ -25,6 +25,8 @@ from django.shortcuts import redirect
 from urllib.parse import urlencode
 from django.core.exceptions import ValidationError
 import requests
+from django.db.models import BooleanField, Value
+from itertools import chain
 
 import pandas as pd
 import os
@@ -327,7 +329,7 @@ class LoginApi(CreateAPIView):
             if mail_status==0:
                 return Response({"msg": " Failed to send mail "}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                return Response({'pseudo_email':company_email, 'client_id':user_client_id, 'unregistered':False, 'user_name':user_name, 'otp_access':client_obj.otp_access}, status=status.HTTP_201_CREATED)
+                return Response({'pseudo_email':company_email, 'client_id':user_client_id, 'unregistered':False, 'user_name':user_name, 'otp_access':client_obj.otp_access, 'gender_male':user.gender_male}, status=status.HTTP_201_CREATED)
         else:
             company_client_id = 9
             company_email = 'nocompany@redseerconsulting.com'
@@ -437,8 +439,13 @@ class MSAccessTokenAPI(CreateAPIView):
     # authentication_classes = (TokenAuthentication,)
     def get(self, request):
         query_params = self.request.query_params
-        report_name = query_params['rep']
+        report_name = query_params.get("rep")
         email = query_params['email']
+        # if report_name:
+        #     report_id =  models.NewReportModel.objects.filter(report_name = self.request.query_params['rep'])[0]
+        # else:
+        #     report_id = query_params.get('rep_id')
+
         url = "https://login.microsoftonline.com/common/oauth2/token"
         payload = "grant_type=password\r\n&username=1mg@redseerconsulting.com\r\n&password=Waj179490\r\n&client_id=a9826bb1-7b52-4b3f-80f2-2ffa4d1cd578\r\n&client_secret=cuV8Q~hl7__PcjsvYSxTDHraG4vcMMLTRQRtyceA\r\n&resource=https://analysis.windows.net/powerbi/api"
         headers = {
@@ -457,18 +464,18 @@ class MSAccessTokenAPI(CreateAPIView):
 
         response = requests.request("GET", workspace_url, headers=workspace_headers, data=workspace_payload)
         value=response.json()['value']
-        print('value = ', value)
+        # print('value = ', value)
         report_id = 0
         report_url = ''
         report_datasetId = 0
         for i in value:
             if i['name']==report_name:
-                print('i=', i)
+                # print('i=', i)
                 report_id = i['id']
                 report_url = i['embedUrl']
                 report_datasetId = i['datasetId']
-        print(report_id)
-        print('report_datasetid=',report_datasetId)
+        # print(report_id)
+        # print('report_datasetid=',report_datasetId)
         embed_url = f"https://api.powerbi.com/v1.0/myorg/groups/67294232-0c81-43c2-a16d-22544a0a390b/reports/{report_id}/GenerateToken"
         embed_payload = json.dumps({
         "accessLevel": "View",
@@ -485,7 +492,7 @@ class MSAccessTokenAPI(CreateAPIView):
         'Content-Type': 'application/json'
         }
         response = requests.request("POST", embed_url, headers=embed_headers, data=embed_payload)
-        print('response=', response)
+        # print('response=', response)
         embed_token = response.json()['token']
 
         page_url = f"https://api.powerbi.com/v1.0/myorg/reports/{report_id}/pages"
@@ -505,11 +512,53 @@ class PlayerLCView(ListCreateAPIView):
     # authentication_classes = (TokenAuthentication,)
     serializer_class = serializers.PlayerSerializer
     queryset = models.Player.objects
-    def get(self,request):
-        name = self.request.query_params.get('name')
-        print(name)
-        player = models.Player.objects.get(player_name=name)
-        return Response({'powerbi_page': player.powerbi_page},  status=status.HTTP_200_OK)
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if 'client_id' in self.request.query_params:
+            client_id = self.request.query_params.get('client_id')
+            li = []
+            # get reports of this client
+            report_access_object = models.NewReportAccessModel.objects.filter(client_id = client_id)
+            for i in report_access_object:
+                for j in i.players.all():
+                    li.append(j.player_name)
+            
+            matching_objects = queryset.filter(player_name__in=li)
+            # matching_objects = matching_objects.annotate(subscribed=Value(True, output_field=BooleanField()))
+            non_matching_objects = queryset.exclude(player_name__in=li)
+            # non_matching_objects = non_matching_objects.annotate(subscribed=Value(False, output_field=BooleanField()))
+
+            # result_queryset = matching_objects.union(non_matching_objects)
+            # return Response({'subbed':matching_objects , 'all': result_queryset}, status=status.HTTP_200_OK)
+            # return chain(matching_objects, result_queryset )
+            return non_matching_objects
+
+        return queryset
+
+class SubPlayerLCView(ListCreateAPIView):
+    # permission_classes = (IsAuthenticated,)
+    # authentication_classes = (TokenAuthentication,)
+    serializer_class = serializers.PlayerSerializer
+    queryset = models.Player.objects
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if 'client_id' in self.request.query_params:
+            client_id = self.request.query_params.get('client_id')
+            li = []
+            # get reports of this client
+            report_access_object = models.NewReportAccessModel.objects.filter(client_id = client_id)
+            for i in report_access_object:
+                for j in i.players.all():
+                    li.append(j.player_name)
+            
+            matching_objects = queryset.filter(player_name__in=li)
+            return matching_objects
+
+        return queryset
+
+
 
 class ReportPlayerLCView(ListCreateAPIView):
     # permission_classes = (IsAuthenticated,)
@@ -626,7 +675,7 @@ class GoogleLoginApi(APIView):
             token = Token.objects.create(user = user)
             print('token=',token)
             company_email = models.ClientModel.objects.filter(id=user_client_id)[0].company_email
-            response = redirect(f'https://api.benchmarks.digital/MainPage/?backend_token={token}&client_id={user_client_id}&email={email}&pseudo_email={company_email}')
+            response = redirect(f'https://api.benchmarks.digital/newreport/?backend_token={token}&client_id={user_client_id}&email={email}&pseudo_email={company_email}&name={user.first_name}')
             return response
         elif models.CompanyDomainModel.objects.filter(domain_name=email_company_name).exists():
             username = email.split('@')[0]
@@ -643,7 +692,7 @@ class GoogleLoginApi(APIView):
                 user.set_password('123')
                 user.save()
                 token = Token.objects.create(user=user)
-                response = redirect(f'https://api.benchmarks.digital/MainPage/?backend_token={token}&client_id={company_client_id}&email={email}&pseudo_email={company_email}')
+                response = redirect(f'https://api.benchmarks.digital/newreport/?backend_token={token}&client_id={company_client_id}&email={email}&pseudo_email={company_email}&name={username}')
                 return response
         else:
             username = email.split('@')[0]
@@ -654,7 +703,7 @@ class GoogleLoginApi(APIView):
                 user.set_password('123')
                 user.save()
                 token = Token.objects.create(user=user)
-                response = redirect(f'https://api.benchmarks.digital/MainPage/?backend_token={token}&client_id={company_client_id}&email={email}&pseudo_email={company_email}')
+                response = redirect(f'https://api.benchmarks.digital/newreport/?backend_token={token}&client_id={company_client_id}&email={email}&pseudo_email={company_email}')
                 return response
 
 class MicrosoftLoginApi(APIView):
@@ -691,7 +740,8 @@ class MicrosoftLoginApi(APIView):
                 company_email = models.ClientModel.objects.filter(id=user_client_id)[0].company_email
                 # response = redirect(f'http://localhost:3000/MainPage/?backend_token={token}&client_id={user_client_id}&email={email}&pseudo_email={company_email}')
                 # return response
-                return Response({'token':token[0].key,'pseudo_email':company_email, 'client_id':user_client_id}, status=status.HTTP_201_CREATED)
+                print('user=', user.first_name)
+                return Response({'token':token[0].key,'pseudo_email':company_email, 'client_id':user_client_id, 'user_name':user.first_name, 'gender_male':user.gender_male}, status=status.HTTP_201_CREATED)
             elif models.CompanyDomainModel.objects.filter(domain_name=email_company_name).exists():
                 username = email.split('@')[0]
                 company_domain_obj = models.CompanyDomainModel.objects.filter(domain_name=email_company_name)
@@ -887,6 +937,13 @@ class NewReportAPI(ListCreateAPIView):
             # check if node's pk or name is subscribed by client_id if yes set sub to true
             if node.pk in li:
                 subscribed = True
+            else:
+                # check if any child id of node is in li. if yes than we need to show that report highlightrd hence set subsribed to true
+                children = node.get_children()
+                for child in children:
+                    if child.pk in li:
+                        subscribed = True
+                        break
             item = {
                 'key': node.pk,
                 'label': node.report_name,
@@ -925,6 +982,17 @@ class NewReportAPI(ListCreateAPIView):
             for i in qs:
                 li.append(i.report_id.id)
             tree_data = self.get_subbed_tree_data(root_nodes, client_id, li)
+            # print(tree_data)
+            sub_li = []
+            unsub_li = []
+            # for i in range(len(tree_data)):
+            #     if tree_data[i]['nodes']['subscribed'] == True:
+            #         sub_li = sub_li+tree_data[i]['nodes']
+            #     else:
+            #         unsub_li = unsub_li+tree_data[i]['nodes']
+            
+            # li = sub_li+unsub_li
+            print(sub_li)
             res = tree_data
             return JsonResponse(res, safe=False)
         tree_data = self.get_tree_data(root_nodes)
@@ -974,80 +1042,98 @@ class NodeChildrenAPI(APIView):
                 data.append(child_data)
         return JsonResponse(data, safe=False)
 
-class UserNodesAPI(APIView):
-    def get(self, request):
-        if 'client_id' in self.request.query_params:
-            client_id = self.request.query_params['client_id']
-            
-        tree_data = self.get_tree_data(root_nodes)
-        res = tree_data
-        return JsonResponse(res, safe=False)
-
 class NewReportPagesLCView(ListCreateAPIView):
     queryset = models.NewReportPagesModel.objects
     serializer_class = serializers.NewReportPagesSerializer
 
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
 
     def get_queryset(self):
-        report_id =  models.NewReportModel.objects.filter(report_name = self.request.query_params['rep'])[0]
-        res = self.queryset.filter(report = report_id)
-        ans = []
-        for j in range(len(res)):
-            if res[j].url and res[j].powerbi_report_id  and res[j].report_name:
-                report_name = res[j].report_name
-                email = 'digital@redseerconsulting.com'
-                url = "https://login.microsoftonline.com/common/oauth2/token"
-                payload = "grant_type=password\r\n&username=1mg@redseerconsulting.com\r\n&password=Waj179490\r\n&client_id=a9826bb1-7b52-4b3f-80f2-2ffa4d1cd578\r\n&client_secret=cuV8Q~hl7__PcjsvYSxTDHraG4vcMMLTRQRtyceA\r\n&resource=https://analysis.windows.net/powerbi/api"
-                headers = {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Cookie': 'fpc=Aus9rQPMtNtLkL7XzywalRLdloFgAQAAABHzetoOAAAA; stsservicecookie=estsfd; x-ms-gateway-slice=estsfd'
-                }
-                response = requests.request("POST", url, headers=headers, data=payload)
-                response = response.json()
-                access_token = response["access_token"]
+        query_params = self.request.query_params
+        report_name = query_params.get("rep")
+        
+        client_id = self.request.user.client_id
+        print('clid = ',client_id)
+        report_access_object = models.NewReportAccessModel.objects.filter(client_id = client_id)
+        print('rao= ', report_access_object[0])
 
-                workspace_url = "https://api.powerbi.com/v1.0/myorg/groups/67294232-0c81-43c2-a16d-22544a0a390b/reports/"
-                workspace_payload={}
-                workspace_headers = {
-                'Authorization': f'Bearer {access_token}'
-                }
+        # report_id = models.NewReportModel.objects.filter(report_name=report_name)
 
-                response = requests.request("GET", workspace_url, headers=workspace_headers, data=workspace_payload)
-                value=response.json()['value']
-                # print('value = ', value)
-                report_id = 0
-                report_url = ''
-                report_datasetId = 0
-                for i in value:
-                    if i['name']==report_name:
-                        # print('i=', i)
-                        report_id = i['id']
-                        report_url = i['embedUrl']
-                        report_datasetId = i['datasetId']
-                # print(report_id)
-                # print('report_datasetid=',report_datasetId)
-                embed_url = f"https://api.powerbi.com/v1.0/myorg/groups/67294232-0c81-43c2-a16d-22544a0a390b/reports/{report_id}/GenerateToken"
-                embed_payload = json.dumps({
-                "accessLevel": "View",
-                "allowSaveAs": "false",
-                "identities": [{
-                "userpricipalname": "user",
-                "username":email,
-                "roles": ["Client_Dynamic_RLS"],
-                "datasets": [report_datasetId]
-                }]
-                })
-                embed_headers = {
-                'Authorization': f'Bearer {access_token}',
-                'Content-Type': 'application/json'
-                }
-                response = requests.request("POST", embed_url, headers=embed_headers, data=embed_payload)
-                print('response=', response)
-                embed_token = response.json()['token']
-                print(res[j])
-                res[j].embed=embed_token
-                res[j].save()
-        return res
+        if report_name:
+            report_id =  models.NewReportModel.objects.filter(report_name = self.request.query_params['rep'])[0]
+            print('rep_id = ',report_id.id)
+        else:
+            report_id = query_params.get('rep_id')
+            # report_id = int(report_id)
+        
+        match  = False
+        for i in range(len(report_access_object)):
+            if report_id.free == True:
+                match = True
+                print('free')
+                break
+            elif report_access_object[i].report_id == report_id:
+                match = True
+                print('match')
+                break
+        if match:
+            res = self.queryset.filter(report = report_id)
+            ans = []
+            for j in range(len(res)):
+                if res[j].url and res[j].powerbi_report_id  and res[j].report_name:
+                    report_name = res[j].report_name
+                    email = 'digital@redseerconsulting.com'
+                    url = "https://login.microsoftonline.com/common/oauth2/token"
+                    payload = "grant_type=password\r\n&username=1mg@redseerconsulting.com\r\n&password=Waj179490\r\n&client_id=a9826bb1-7b52-4b3f-80f2-2ffa4d1cd578\r\n&client_secret=cuV8Q~hl7__PcjsvYSxTDHraG4vcMMLTRQRtyceA\r\n&resource=https://analysis.windows.net/powerbi/api"
+                    headers = {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Cookie': 'fpc=Aus9rQPMtNtLkL7XzywalRLdloFgAQAAABHzetoOAAAA; stsservicecookie=estsfd; x-ms-gateway-slice=estsfd'
+                    }
+                    response = requests.request("POST", url, headers=headers, data=payload)
+                    response = response.json()
+                    access_token = response["access_token"]
+
+                    workspace_url = "https://api.powerbi.com/v1.0/myorg/groups/67294232-0c81-43c2-a16d-22544a0a390b/reports/"
+                    workspace_payload={}
+                    workspace_headers = {
+                    'Authorization': f'Bearer {access_token}'
+                    }
+
+                    response = requests.request("GET", workspace_url, headers=workspace_headers, data=workspace_payload)
+                    value=response.json()['value']
+                    # print('value = ', value)
+                    report_id = 0
+                    report_url = ''
+                    report_datasetId = 0
+                    for i in value:
+                        if i['name']==report_name:
+                            # print('i=', i)
+                            report_id = i['id']
+                            report_url = i['embedUrl']
+                            report_datasetId = i['datasetId']
+                    # print(report_id)
+                    # print('report_datasetid=',report_datasetId)
+                    embed_url = f"https://api.powerbi.com/v1.0/myorg/groups/67294232-0c81-43c2-a16d-22544a0a390b/reports/{report_id}/GenerateToken"
+                    embed_payload = json.dumps({
+                    "accessLevel": "View",
+                    "allowSaveAs": "false",
+                    "identities": [{
+                    "userpricipalname": "user",
+                    "username":email,
+                    "roles": ["Client_Dynamic_RLS"],
+                    "datasets": [report_datasetId]
+                    }]
+                    })
+                    embed_headers = {
+                    'Authorization': f'Bearer {access_token}',
+                    'Content-Type': 'application/json'
+                    }
+                    response = requests.request("POST", embed_url, headers=embed_headers, data=embed_payload)
+                    embed_token = response.json()['token']
+                    res[j].embed=embed_token
+                    res[j].save()
+            return res
 
 
 class NewReportAccessTree(ListCreateAPIView):
@@ -1094,12 +1180,16 @@ class NewReportAccessLCView(ListCreateAPIView):
     def get_queryset(self):
         query_params = self.request.query_params
         client_id = query_params.get("client_id")
+        free_reports = models.NewReportModel.objects.filter(free = True)
+        print(free_reports[0].id)
         # client_id = 1
         if client_id:
-            # self.queryset = self.queryset.filter(client__id = client_id)
             self.queryset = self.queryset.filter(client_id = client_id)
+        print(self.queryset[0])
         return self.queryset
     
 class NewReportPageAccessLCView(ListCreateAPIView):
     queryset = models.NewReportPageAccessModel.objects
     serializer_class = serializers.NewReportPageAccessSerializer
+
+

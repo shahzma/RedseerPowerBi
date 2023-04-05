@@ -9,7 +9,7 @@ from .models import ClientModel, ReportAccessModel, User, ReportModel, CompanyDo
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'email', 'phone', 'username', 'password', 'client', 'counter']
+        fields = ['id', 'email', 'phone', 'username', 'password', 'client', 'counter', 'gender_male']
         read_only_fields = ['id']
 
     def create(self, validated_data):
@@ -88,13 +88,7 @@ class CompanyDomainSerializer(serializers.ModelSerializer):
     class Meta:
         model = CompanyDomainModel
         fields = ['id', 'client_id', 'domain_name']
-        read_only_fields = ['id']
-        
-class PlayerSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Player
-        fields = ['player_id', 'player_name', 'industry_id', 'powerbi_page']
-        read_only_fields = ['player_id']  
+        read_only_fields = ['id'] 
 
 class ReportPlayerSerializer(serializers.ModelSerializer):
 
@@ -112,8 +106,9 @@ class ReportPlayerSerializer(serializers.ModelSerializer):
 class IconSerializer(serializers.ModelSerializer):
     class Meta:
         model = IconModel
-        fields = ['id', 'name', 'file']
+        fields = [ 'name', 'file']
         read_only_fields = ['id']
+
 
 class ReportPagesSerializer(serializers.ModelSerializer):
 
@@ -175,9 +170,20 @@ class NewReportSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['id']
 
+class PlayerSerializer(serializers.ModelSerializer):
+    image = IconSerializer()
+    newreport= NewReportSerializer()
+    class Meta:
+        model = Player
+        fields = '__all__'
+        read_only_fields = ['player_id'] 
+
+    
 class NewReportPagesSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
+        # data['filter_type']= NewReportModel.objects.filter(id = data['report'])[0].filter
+        # data['filter_value'] = NewReportModel.objects.filter(id = data['report'])[0].filter_value
         return data
 
     class Meta:

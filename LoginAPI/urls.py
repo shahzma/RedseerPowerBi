@@ -5,7 +5,7 @@ from django.urls import path
 from django.conf.urls import include
 from .views import LogOutApi, LoginApi, UserViewSet, CompanyLCView, ReportAccessLCView, ReportAccessRUDView, ReportLCView,CompanyDomainLCView,MSAccessTokenAPI, PlayerLCView, ReportPageApi\
     ,ReportPlayerLCView, IconLCView, ValidateCurrentToken, GoogleLoginApi, MicrosoftLoginApi, ExcelLinkApi, TagLCView, UserPopupLCView, NewReportAPI, NewReportPagesLCView, UserCurrencyLCView,\
-         NewReportAccessLCView, NewReportPageAccessLCView, NewReportAccessTree, NodeChildrenAPI
+         NewReportAccessLCView, NewReportPageAccessLCView, NewReportAccessTree, NodeChildrenAPI, SubPlayerLCView
 
 
 router = routers.DefaultRouter()
@@ -107,6 +107,10 @@ nodechildren_urls = [
     path('', NodeChildrenAPI.as_view(), name = 'lc')
 ]
 
+subplayer_urls = [
+    path("", SubPlayerLCView.as_view(), name="lc"),
+]
+
 urlpatterns = [
     path('', include(router.urls)),
     path('authorise/', include(authUrls), name='authorise'),
@@ -115,6 +119,7 @@ urlpatterns = [
     path('report_access/', include(reportAccessUrls), name='report_access'),
     path('company_domain/', include(companyDomainUrls), name='company_domain'),
     path("player/", include((player_urls, "player"), namespace="player")),
+    path("subplayer/", include((subplayer_urls, "subplayer"), namespace="subplayer")),
     path("MSAccessToken/", include(MSUrls), name='ms'),
     path("PageReports/", include(ReportPageUrls), name='reportpages'),
     path('ReportPlayers/', include(reportPlayer_urls), name = 'reportplayer'),
@@ -131,5 +136,5 @@ urlpatterns = [
     path('usercurrency/', include(usercurrency_urls), name='usercurrency'),
     path('newreportaccess/', include(newreportaccess_urls), name = 'newreportacess'),
     path('newreportaccesstree/', include(newreportaccesstree_urls), name = 'newreportacesstree'),
-    path('nodechildren/', include(nodechildren_urls), name = 'nodechildren')
+    path('nodechildren/', include(nodechildren_urls), name = 'nodechildren'),
     ]

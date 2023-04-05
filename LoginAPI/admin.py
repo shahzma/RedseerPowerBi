@@ -7,8 +7,9 @@ from django import forms
 # Register your models here.
 from .models import ClientModel, ReportModel, ReportAccessModel,CompanyDomainModel,ReportPlayerModel, IconModel,ReportPagesModel,User, NewReportPagesModel, NewReportModel, NewReportAccessModel, NewReportPageAccessModel, Player
 
-# admin.site.register(User)
+#admin.site.register(User)
 # admin.site.register(ClientModel)
+admin.site.register(Player)
 admin.site.register(ReportModel)
 admin.site.register(ReportAccessModel)
 admin.site.register(CompanyDomainModel)
@@ -19,10 +20,17 @@ admin.site.register(NewReportPageAccessModel)
 admin.site.register(NewReportAccessModel)
 # admin.site.register(ReportPagesModel)
 
-class UserAdmin(admin.TabularInline):
+class CustomUserAdmin(admin.TabularInline):
     model = User
-    fields = ('email', 'username', 'first_name', 'last_name', 'is_staff', 'is_active','phone', 'password')
+    fields = ('email', 'username', 'first_name', 'last_name', 'is_staff', 'is_active','phone', 'password', 'gender_male')
 # admin.site.register(User, UserAdmin) 
+class DjangoUserAdmin(UserAdmin):
+    model = User
+    fieldsets = UserAdmin.fieldsets + (('Custom fields', {'fields': ('phone', 'gender_male')}),)
+
+admin.site.register(User, DjangoUserAdmin)
+
+
 
 class ReportPagesAdmin(DjangoMpttAdmin):
         search_fields = ['report__report_name']
@@ -32,9 +40,11 @@ class ReportPagesAdmin(DjangoMpttAdmin):
 admin.site.register(ReportPagesModel, ReportPagesAdmin)    
 
 
-class NewReportAdmin(DjangoMpttAdmin):
-        pass
+class NewReportPagesAdmin(admin.TabularInline):
+    model = NewReportPagesModel
 
+class NewReportAdmin(DjangoMpttAdmin):
+    inlines = [NewReportPagesAdmin]
 
 admin.site.register(NewReportModel, NewReportAdmin)  
 
@@ -68,7 +78,8 @@ class ClientAdmin(admin.ModelAdmin):
     # fieldsets = (
     #     ('ClientDetails', {'fields':('Reports')})
     # )
-    inlines = [ReportAccessAdmin, CompanyDomainAdmin, UserAdmin, NewReportAccessAdmin]
+    inlines = [ReportAccessAdmin, CompanyDomainAdmin, CustomUserAdmin, NewReportAccessAdmin]
 
-admin.site.register(ClientModel, ClientAdmin)  
+admin.site.register(ClientModel, ClientAdmin) 
+
 

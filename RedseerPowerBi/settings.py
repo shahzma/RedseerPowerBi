@@ -48,7 +48,7 @@ INSTALLED_APPS = [
     'django_mptt_admin',
     'rest_framework',
     'django.contrib.sites',
-    'microsoft_auth',
+    # 'microsoft_auth',
     # 'oauth2_provider',
     'rest_framework.authtoken'  #else token.objects wont appear
 ]
@@ -179,11 +179,11 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, "media_root")
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.gmail.com'
-# EMAIL_USE_TLS = True
-# EMAIL_PORT = 587
-# EMAIL_HOST_USER = 'shahzmaalif@gmail.com'
-# EMAIL_HOST_PASSWORD = 'auhdqetxlohzmzqw'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_USE_TLS = True
+EMAIL_PORT = 587
+EMAIL_HOST_USER = 'shahzmaalif@gmail.com'
+EMAIL_HOST_PASSWORD = 'auhdqetxlohzmzqw'
 AUTH_USER_MODEL = 'LoginAPI.User'
 # BASE_FRONTEND_URL = 'http://localhost:3000'
 BASE_FRONTEND_URL = 'https://benchmarks.digital/'
@@ -192,8 +192,8 @@ BASE_BACKEND_URL = 'https://api.benchmarks.digital'
 GOOGLE_OAUTH2_CLIENT_ID = '560541008989-k0er5bb7onv6dj7d46fh05cjes2qb9p5.apps.googleusercontent.com'
 GOOGLE_OAUTH2_CLIENT_SECRET = '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'
 
-EMAIL_HOST = 'outlook.office365.com'
-EMAIL_HOST_USER = 'noreply@benchmarks.digital'
-EMAIL_HOST_PASSWORD = 'Rub09549'
-EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+# EMAIL_HOST = 'outlook.office365.com'
+# EMAIL_HOST_USER = 'noreply@benchmarks.digital'
+# EMAIL_HOST_PASSWORD = 'Rub09549'
+# EMAIL_USE_TLS = True
+# DEFAULT_FROM_EMAIL = EMAIL_HOST_USER

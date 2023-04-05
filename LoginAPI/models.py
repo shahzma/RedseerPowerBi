@@ -17,6 +17,17 @@ def get_deadline():
     return datetime.datetime.today() + datetime.timedelta(days=30)
 
 
+class IconModel(models.Model):
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=45)
+    file = models.FileField(upload_to='uploads/', max_length=100, blank=True)
+    
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        managed = True
+        db_table = 'icon_model'
 
 
 # previously company model. as soon as user logs in we find his pesuod id and use it to see which reports are available
@@ -34,19 +45,6 @@ class ClientModel(models.Model):
         managed = True
         db_table = 'ClientModel'
 
-class Player(models.Model):
-    player_id = models.AutoField(primary_key=True, auto_created=True)
-    player_name = models.CharField(max_length=45)
-    industry_id = models.IntegerField(default=3) #is called industry
-    powerbi_page = models.CharField(max_length=2000)
-
-    def __str__(self):
-        return self.player_name
-
-    class Meta:
-        managed = False
-        db_table = 'player'
-
 class ReportModel(models.Model):
     id = models.AutoField(primary_key=True)
     report_name = models.CharField(max_length=100)
@@ -56,20 +54,48 @@ class ReportModel(models.Model):
 
 
 class NewReportModel(MPTTModel):
+    FILTER_CHOICES = [
+        ('categories', 'categories'),
+        ('industry', 'industry'),
+        ('1', 'player')
+    ]
     id = models.AutoField(primary_key=True)
     report_name = models.CharField(max_length=100)
     parent = TreeForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children')
     info = models.TextField(default=None, null=True, blank=True)
     finalized = models.BooleanField(default=False)
-    filter = models.CharField(default = None, blank=True, null = True, max_length=200)
+    filter = models.CharField(default = None, blank=True, null = True, max_length=200, choices=FILTER_CHOICES)
     filter_value = models.CharField(default = None, blank=True, null = True, max_length=200)
     node_type = models.CharField(default = None, blank=True, null = True, max_length=200)
+    free = models.BooleanField(default=False)
+
     def __str__(self):
         return self.report_name
 
     class Meta:
         managed = True
         db_table = 'new_report_model'
+
+class Player(models.Model):
+    player_id = models.AutoField(primary_key=True, auto_created=True)
+    player_name = models.CharField(max_length=45)
+    industry_id = models.IntegerField(default=3) #is called industry
+    powerbi_page = models.CharField(max_length=2000, default=None, blank=True, null=True)
+    image = models.ForeignKey('IconModel', on_delete=models.CASCADE,default=None, blank=True, null=True)
+    industry_name = models.CharField(max_length=255)
+    leadership = models.TextField(default=None, null=True, blank=True)
+    status = models.CharField(max_length=255)
+    stage = models.CharField(max_length=255)
+    last_valuations = models.CharField(max_length=255)
+    newreport = models.ForeignKey('NewReportModel', on_delete=models.CASCADE,default=None, blank=True, null=True)
+    
+
+    def __str__(self):
+        return self.player_name
+
+    class Meta:
+        managed = False
+        db_table = 'player'
 
 class NewReportPagesModel(models.Model):
     id = models.AutoField(primary_key=True)
@@ -81,7 +107,8 @@ class NewReportPagesModel(models.Model):
     powerbi_report_id = models.CharField(max_length=200, default=None, null=True, blank=True)
     report_name = models.CharField(max_length=200, default=None, null=True, blank=True)
     same_page = models.BooleanField(default=False)
-
+    has_address = models.BooleanField(default=False)
+    address = models.TextField(default=None, null=True, blank=True)
     def __str__(self):
         return self.page_name
 
@@ -147,18 +174,6 @@ class ReportPlayerModel(models.Model):
     class Meta:
         managed = True
         db_table = 'ReportPlayerModel'
-
-class IconModel(models.Model):
-    id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=45)
-    file = models.FileField(upload_to='uploads/', max_length=100, blank=True)
-    
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        managed = True
-        db_table = 'icon_model'
 
 class ReportPagesModel(MPTTModel):
     id = models.AutoField(primary_key=True)
@@ -239,10 +254,11 @@ class NewReportPageAccessModel(models.Model):
 #     # create a link from the user to the current session (for later removal)
 #     UserSession.objects.get_or_create(
 #         user=user,
-#         session_id=request.session.session_key
+#         session_id=request.s ession.session_key
 #     )
 
 class User(AbstractUser):
     phone = models.CharField(max_length=255,blank=True,null=True)
     client = models.ForeignKey(ClientModel , on_delete=models.CASCADE)
     counter = models.IntegerField(default=0)
+    gender_male = models.BooleanField(default=True ,blank=True,null=True)
