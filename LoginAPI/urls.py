@@ -5,7 +5,7 @@ from django.urls import path
 from django.conf.urls import include
 from .views import LogOutApi, LoginApi, UserViewSet, CompanyLCView, ReportAccessLCView, ReportAccessRUDView, ReportLCView,CompanyDomainLCView,MSAccessTokenAPI, PlayerLCView, ReportPageApi\
     ,ReportPlayerLCView, IconLCView, ValidateCurrentToken, GoogleLoginApi, MicrosoftLoginApi, ExcelLinkApi, TagLCView, UserPopupLCView, NewReportAPI, NewReportPagesLCView, UserCurrencyLCView,\
-         NewReportAccessLCView, NewReportPageAccessLCView, NewReportAccessTree, NodeChildrenAPI, SubPlayerLCView
+         NewReportAccessLCView, NewReportPageAccessLCView, NewReportAccessTree, NodeChildrenAPI, SubPlayerLCView, DummyNodesAPI, index, FinalizedAPI,AccessAPI
 
 
 router = routers.DefaultRouter()
@@ -111,6 +111,17 @@ subplayer_urls = [
     path("", SubPlayerLCView.as_view(), name="lc"),
 ]
 
+dummynodes_urls = [
+     path("", DummyNodesAPI.as_view(), name="lc"),
+]
+
+finalized_urls = [
+    path("", FinalizedAPI.as_view(), name="lc"),
+]
+accessapi_urls = [
+    path('',AccessAPI.as_view(), name = 'lc')
+]
+
 urlpatterns = [
     path('', include(router.urls)),
     path('authorise/', include(authUrls), name='authorise'),
@@ -137,4 +148,8 @@ urlpatterns = [
     path('newreportaccess/', include(newreportaccess_urls), name = 'newreportacess'),
     path('newreportaccesstree/', include(newreportaccesstree_urls), name = 'newreportacesstree'),
     path('nodechildren/', include(nodechildren_urls), name = 'nodechildren'),
+    path('dummynodes/', include(dummynodes_urls), name = 'dummynodes'),
+    path('finalized/', include(finalized_urls), name = 'finalized'),
+    path('index/', index),
+    path('accessapi/', include(accessapi_urls), name = 'accessapi')
     ]

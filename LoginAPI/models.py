@@ -30,6 +30,17 @@ class IconModel(models.Model):
         db_table = 'icon_model'
 
 
+class PackageModel(models.Model):
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=100, default=None)
+
+    def __str__(self):
+        return self.name
+ 
+    class Meta:
+        managed = True
+        db_table = 'PackageModel'
+
 # previously company model. as soon as user logs in we find his pesuod id and use it to see which reports are available
 class ClientModel(models.Model):
     id = models.AutoField(primary_key=True)
@@ -37,6 +48,7 @@ class ClientModel(models.Model):
     company_email = models.EmailField(max_length=100) #pseudo email address 
     wildcard_mode = models.BooleanField(default=False)
     otp_access = models.BooleanField(default=True)
+    package = models.ManyToManyField(PackageModel, blank= True, null=True)
 
     def __str__(self):
         return self.name
@@ -55,9 +67,11 @@ class ReportModel(models.Model):
 
 class NewReportModel(MPTTModel):
     FILTER_CHOICES = [
+        ('sector', 'sector'),
         ('categories', 'categories'),
         ('industry', 'industry'),
-        ('1', 'player')
+        ('1', 'player'),
+        ('medical', 'medical')
     ]
     id = models.AutoField(primary_key=True)
     report_name = models.CharField(max_length=100)
@@ -68,6 +82,7 @@ class NewReportModel(MPTTModel):
     filter_value = models.CharField(default = None, blank=True, null = True, max_length=200)
     node_type = models.CharField(default = None, blank=True, null = True, max_length=200)
     free = models.BooleanField(default=False)
+    has_link = models.BooleanField(default=True)
 
     def __str__(self):
         return self.report_name
@@ -98,6 +113,11 @@ class Player(models.Model):
         db_table = 'player'
 
 class NewReportPagesModel(models.Model):
+    FILTER_CHOICES = [
+        ('powerbi', 'powerbi'),
+        ('httpsAddress', 'httpAddress'),
+        ('component', 'component'),
+    ]
     id = models.AutoField(primary_key=True)
     report = models.ForeignKey('NewReportModel', on_delete=models.CASCADE)
     page_name = models.CharField(max_length=200)
@@ -109,6 +129,9 @@ class NewReportPagesModel(models.Model):
     same_page = models.BooleanField(default=False)
     has_address = models.BooleanField(default=False)
     address = models.TextField(default=None, null=True, blank=True)
+    page_type = models.CharField(default = None, blank=True, null = True, max_length=200, choices=FILTER_CHOICES)
+    component = models.CharField(max_length=200, default=None, null=True, blank=True)
+    component_variable = models.TextField(default=None, null=True, blank=True)
     def __str__(self):
         return self.page_name
 
@@ -214,7 +237,8 @@ class UserPopupModel(models.Model):
 
 class NewReportAccessModel(models.Model):
     id = models.AutoField(primary_key=True)
-    client_id = models.ForeignKey(ClientModel, on_delete=models.CASCADE)
+    client_id = models.ForeignKey(ClientModel, on_delete=models.CASCADE, blank=True, null=True)
+    package_id = models.ForeignKey(PackageModel, on_delete=models.CASCADE, blank=True, null=True)
     report_id = models.ForeignKey(NewReportModel, on_delete = models.CASCADE)
     start_date = models.DateField(default=datetime.date.today, blank=True, null=True)
     end_date = models.DateField(default=get_deadline, blank=True, null=True)

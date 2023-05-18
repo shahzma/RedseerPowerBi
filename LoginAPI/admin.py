@@ -3,9 +3,11 @@ from django_mptt_admin.admin import DjangoMpttAdmin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django import forms
+from django.forms.models import BaseInlineFormSet
+
 
 # Register your models here.
-from .models import ClientModel, ReportModel, ReportAccessModel,CompanyDomainModel,ReportPlayerModel, IconModel,ReportPagesModel,User, NewReportPagesModel, NewReportModel, NewReportAccessModel, NewReportPageAccessModel, Player
+from .models import ClientModel, ReportModel, ReportAccessModel,CompanyDomainModel,ReportPlayerModel, IconModel,ReportPagesModel,User, NewReportPagesModel, NewReportModel, NewReportAccessModel, NewReportPageAccessModel, Player, PackageModel
 
 #admin.site.register(User)
 # admin.site.register(ClientModel)
@@ -18,6 +20,7 @@ admin.site.register(IconModel)
 admin.site.register(NewReportPagesModel)
 admin.site.register(NewReportPageAccessModel)
 admin.site.register(NewReportAccessModel)
+# admin.site.register(PackageModel)
 # admin.site.register(ReportPagesModel)
 
 class CustomUserAdmin(admin.TabularInline):
@@ -81,5 +84,24 @@ class ClientAdmin(admin.ModelAdmin):
     inlines = [ReportAccessAdmin, CompanyDomainAdmin, CustomUserAdmin, NewReportAccessAdmin]
 
 admin.site.register(ClientModel, ClientAdmin) 
+
+class NewReportAccessPackageForm(forms.ModelForm):
+    report_pages = forms.ModelMultipleChoiceField(queryset=NewReportPagesModel.objects.all(),  widget=OptionalFilteredSelectMultiple('NewReportPagesModel', False), required=False)
+    players = forms.ModelMultipleChoiceField(queryset=Player.objects.all(),  widget=OptionalFilteredSelectMultiple('Player', False),required=False)
+    class Meta:
+        model = NewReportAccessModel
+        fields = ['report_id', 'start_date', 'end_date', 'players', 'report_pages']
+
+class NewReportAccessPackageAdmin(admin.StackedInline):
+    model = NewReportAccessModel
+    form = NewReportAccessPackageForm
+
+
+
+class PackageAdmin(admin.ModelAdmin):
+    model = PackageModel
+    inlines = [NewReportAccessPackageAdmin]
+
+admin.site.register(PackageModel, PackageAdmin) 
 
 

@@ -4,7 +4,7 @@ from dataclasses import field
 import re
 from rest_framework.authtoken.models import Token
 from rest_framework import serializers
-from .models import ClientModel, ReportAccessModel, User, ReportModel, CompanyDomainModel, Player, ReportPagesModel, ReportPlayerModel, IconModel, TagModel, UserPopupModel, NewReportModel, NewReportPagesModel, UserCurrencyModel, NewReportAccessModel, NewReportPageAccessModel
+from .models import ClientModel, ReportAccessModel, User, ReportModel, CompanyDomainModel, Player, ReportPagesModel, ReportPlayerModel, IconModel, TagModel, UserPopupModel, NewReportModel, NewReportPagesModel, UserCurrencyModel, NewReportAccessModel, NewReportPageAccessModel, PackageModel
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -18,6 +18,12 @@ class UserSerializer(serializers.ModelSerializer):
         Token.objects.create(user=user)
         return user
 
+
+class PackageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PackageModel
+        fields = '__all__'
+        read_only_fields = ['id']
 
 class CompanySerializer(serializers.ModelSerializer):
     class Meta:

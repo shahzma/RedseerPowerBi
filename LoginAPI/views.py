@@ -1,7 +1,10 @@
 # from django.contrib.auth.signals import user_logged_in
 # from django.contrib.auth import authenticate, login, logout
 from http import client
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse,FileResponse
+from django.core.cache import cache
+
+from django.template import loader  
 from django.shortcuts import render
 from . import models, serializers
 from rest_framework import viewsets
@@ -25,8 +28,9 @@ from django.shortcuts import redirect
 from urllib.parse import urlencode
 from django.core.exceptions import ValidationError
 import requests
-from django.db.models import BooleanField, Value
+from django.db.models import BooleanField, Value, Q
 from itertools import chain
+from openpyxl import Workbook
 
 import pandas as pd
 import os
@@ -261,40 +265,11 @@ class LoginApi(CreateAPIView):
         # print('genratedOTP = ',OTP)
         email = self.request.query_params.get('email')
         email_company_name = email.split('@')[1]
+        print(email_company_name)
         # check if email is in user database or in company database or nowhere, we are checking company first
         # bcoz after 1st login user will be registred in usertable and hence will not be able to see campany aceess report
         # company domian model corresponds to wildcad entry
-        if models.CompanyDomainModel.objects.filter(domain_name=email_company_name).exists():
-            totp = pyotp.TOTP('base32secret3232', interval=300)
-            OTP = totp.now()
-            print('genratedOTP = ',OTP)
-            company_domain_obj = models.CompanyDomainModel.objects.filter(domain_name=email_company_name)
-            client_name = company_domain_obj[0].client_id
-            company_obj = models.ClientModel.objects.filter(name = client_name)
-            company_email = company_obj[0].company_email
-            company_client_id = company_obj[0].id
-            print('comp_client_id=', company_client_id)
-            print('comp_email=',company_email)
-            msg = EmailMessage(
-                'Login OTP Redseer',
-                f'Welcome back User,<br>Your One Time Password (OTP) for Benchmarks login is 【{OTP}】.<br>Please DO NOT share this OTP with anyone.<br>Cheers,<br>Team Benchmarks',
-                settings.EMAIL_HOST_USER,
-                [email]
-            )
-            msg.content_subtype = "html"
-            mail_status =msg.send()
-            print('mail_sent')
-            # mail_status = send_mail(subject='Login OTP Redseer', message=f'Welcome Back User, Your One Time Password (OTP) for Benchmarks login is 【{OTP}】.Please DO NOT share this OTP with anyone.',from_email=settings.EMAIL_HOST_USER,recipient_list = [email], fail_silently=False)
-            # message = twilio_client.messages.create(
-            #             body=f'Your verification code is 【{OTP}】. It is valid for 3 min',
-            #             from_='+18775655473',
-            #             to='+918791205476'
-            #         )
-            if mail_status==0:
-                return Response({"msg": " Failed to send mail "}, status=status.HTTP_400_BAD_REQUEST)
-            else:
-                return Response({'pseudo_email':company_email, "OTP": OTP, 'client_id':company_client_id, 'unregistered':False}, status=status.HTTP_201_CREATED)
-        elif models.User.objects.filter(email=email).exists():
+        if models.User.objects.filter(email=email).exists():
             user = models.User.objects.filter(email=email)
             user_client_id = user[0].client_id
             user_name = user[0].first_name
@@ -330,6 +305,37 @@ class LoginApi(CreateAPIView):
                 return Response({"msg": " Failed to send mail "}, status=status.HTTP_400_BAD_REQUEST)
             else:
                 return Response({'pseudo_email':company_email, 'client_id':user_client_id, 'unregistered':False, 'user_name':user_name, 'otp_access':client_obj.otp_access, 'gender_male':user.gender_male}, status=status.HTTP_201_CREATED)
+        elif models.CompanyDomainModel.objects.filter(domain_name=email_company_name).exists():
+            print('works')
+            totp = pyotp.TOTP('base32secret3232', interval=300)
+            OTP = totp.now()
+            print('genratedOTP = ',OTP)
+            company_domain_obj = models.CompanyDomainModel.objects.filter(domain_name=email_company_name)
+            client_name = company_domain_obj[0].client_id
+            company_obj = models.ClientModel.objects.filter(name = client_name)
+            company_email = company_obj[0].company_email
+            company_client_id = company_obj[0].id
+            print('comp_client_id=', company_client_id)
+            print('comp_email=',company_email)
+            msg = EmailMessage(
+                'Login OTP Redseer',
+                f'Welcome back User,<br>Your One Time Password (OTP) for Benchmarks login is 【{OTP}】.<br>Please DO NOT share this OTP with anyone.<br>Cheers,<br>Team Benchmarks',
+                settings.EMAIL_HOST_USER,
+                [email]
+            )
+            msg.content_subtype = "html"
+            mail_status =msg.send()
+            print('mail_sent')
+            # mail_status = send_mail(subject='Login OTP Redseer', message=f'Welcome Back User, Your One Time Password (OTP) for Benchmarks login is 【{OTP}】.Please DO NOT share this OTP with anyone.',from_email=settings.EMAIL_HOST_USER,recipient_list = [email], fail_silently=False)
+            # message = twilio_client.messages.create(
+            #             body=f'Your verification code is 【{OTP}】. It is valid for 3 min',
+            #             from_='+18775655473',
+            #             to='+918791205476'
+            #         )
+            if mail_status==0:
+                return Response({"msg": " Failed to send mail "}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({'pseudo_email':company_email, "OTP": OTP, 'client_id':company_client_id, 'unregistered':False,'otp_access':True, 'user_name':'' }, status=status.HTTP_201_CREATED)
         else:
             company_client_id = 9
             company_email = 'nocompany@redseerconsulting.com'
@@ -423,6 +429,10 @@ class LogOutApi(CreateAPIView):
         if user.auth_token:
             user.auth_token.delete()
         return Response({'Logged_Out': True},  status=status.HTTP_200_OK)
+
+class PackageApi(ListCreateAPIView):
+    serializer_class = serializers.PackageSerializer
+    queryset = models.PackageModel.objects
 
 class ValidateCurrentToken(CreateAPIView):
     permission_classes = (IsAuthenticated,)
@@ -554,6 +564,7 @@ class SubPlayerLCView(ListCreateAPIView):
                     li.append(j.player_name)
             
             matching_objects = queryset.filter(player_name__in=li)
+            print(matching_objects)
             return matching_objects
 
         return queryset
@@ -675,7 +686,7 @@ class GoogleLoginApi(APIView):
             token = Token.objects.create(user = user)
             print('token=',token)
             company_email = models.ClientModel.objects.filter(id=user_client_id)[0].company_email
-            response = redirect(f'https://api.benchmarks.digital/newreport/?backend_token={token}&client_id={user_client_id}&email={email}&pseudo_email={company_email}&name={user.first_name}')
+            response = redirect(f'https://benchmarks.digital/newreport/?backend_token={token}&client_id={user_client_id}&email={email}&pseudo_email={company_email}&name={user.first_name}')
             return response
         elif models.CompanyDomainModel.objects.filter(domain_name=email_company_name).exists():
             username = email.split('@')[0]
@@ -692,7 +703,7 @@ class GoogleLoginApi(APIView):
                 user.set_password('123')
                 user.save()
                 token = Token.objects.create(user=user)
-                response = redirect(f'https://api.benchmarks.digital/newreport/?backend_token={token}&client_id={company_client_id}&email={email}&pseudo_email={company_email}&name={username}')
+                response = redirect(f'https://benchmarks.digital/newreport/?backend_token={token}&client_id={company_client_id}&email={email}&pseudo_email={company_email}&name={username}')
                 return response
         else:
             username = email.split('@')[0]
@@ -703,7 +714,7 @@ class GoogleLoginApi(APIView):
                 user.set_password('123')
                 user.save()
                 token = Token.objects.create(user=user)
-                response = redirect(f'https://api.benchmarks.digital/newreport/?backend_token={token}&client_id={company_client_id}&email={email}&pseudo_email={company_email}')
+                response = redirect(f'https://benchmarks.digital/newreport/?backend_token={token}&client_id={company_client_id}&email={email}&pseudo_email={company_email}')
                 return response
 
 class MicrosoftLoginApi(APIView):
@@ -952,7 +963,8 @@ class NewReportAPI(ListCreateAPIView):
                 'filter': node.filter,
                 'key_val': node.pk,
                 'node_type': node.node_type,
-                'subscribed':subscribed
+                'subscribed':subscribed,
+                'has_link':node.has_link,
             }
             children = node.get_children()
             if children:
@@ -964,6 +976,32 @@ class NewReportAPI(ListCreateAPIView):
                 item['nodes'] = []
             data.append(item)
         return data
+
+    def has_subscribed_nodes(self, node):
+        if node["subscribed"]:
+            return True
+        for child in node["nodes"]:
+            if self.has_subscribed_nodes(child):
+                return True
+        return False
+
+    # Recursive function to sort the nodes based on subscription status
+    def sort_nodes(self,node):
+        # Sort child nodes first
+        node["nodes"] = sorted(node["nodes"], key=self.sort_nodes)
+        # Sort current node based on subscription status
+        if self.has_subscribed_nodes(node):
+            return 0
+        else:
+            return 1
+
+    def get_accessible_package(self, client_id):
+        client_obj = models.ClientModel.objects.filter(id = client_id)
+        package_li = client_obj[0].package.all()
+        res = []
+        for i in package_li:
+            res.append(i.id)
+        return res
 
     def get(self, request):
         # rep = self.request.query_params['rep']
@@ -977,12 +1015,13 @@ class NewReportAPI(ListCreateAPIView):
 
         if 'client_id' in self.request.query_params:
             client_id  = self.request.query_params['client_id']
-            qs = models.NewReportAccessModel.objects.filter(client_id = client_id)
+            accessible_package_list = self.get_accessible_package(client_id)
+            qs = models.NewReportAccessModel.objects.filter(Q(client_id = client_id)|Q(package_id__in = accessible_package_list))
             li  = []
             for i in qs:
                 li.append(i.report_id.id)
             tree_data = self.get_subbed_tree_data(root_nodes, client_id, li)
-            # print(tree_data)
+            # print('tree_data=',tree_data)
             sub_li = []
             unsub_li = []
             # for i in range(len(tree_data)):
@@ -992,12 +1031,22 @@ class NewReportAPI(ListCreateAPIView):
             #         unsub_li = unsub_li+tree_data[i]['nodes']
             
             # li = sub_li+unsub_li
-            print(sub_li)
-            res = tree_data
+            # print(li)
+            # res = tree_data
+            res = sorted(tree_data, key=self.sort_nodes)
             return JsonResponse(res, safe=False)
         tree_data = self.get_tree_data(root_nodes)
         res = tree_data
         return JsonResponse(res, safe=False)
+
+class DummyNodesAPI(APIView):
+    def get( self, request):
+        nodes = models.NewReportModel.objects.filter( has_link= False)
+        res = []
+        for i in nodes:
+            res = res+[i.report_name]
+        return JsonResponse(res, safe=False)
+
 
 class NodeChildrenAPI(APIView):
     def get(self, request, *args, **kwargs):
@@ -1049,37 +1098,67 @@ class NewReportPagesLCView(ListCreateAPIView):
     permission_classes = (IsAuthenticated,)
     authentication_classes = (TokenAuthentication,)
 
+    def get_accessible_package(self, client_id):
+        print('clid= ', client_id)
+        client_obj = models.ClientModel.objects.filter(id = client_id)
+        package_li = client_obj[0].package.all()
+        res = []
+        for i in package_li:
+            res.append(i.id)
+        return res
+
     def get_queryset(self):
         query_params = self.request.query_params
         report_name = query_params.get("rep")
         
         client_id = self.request.user.client_id
-        print('clid = ',client_id)
-        report_access_object = models.NewReportAccessModel.objects.filter(client_id = client_id)
+        # print('clid = ',client_id)
+
+        # get accessible_package list
+        accessible_package_list  =self.get_accessible_package(client_id)
+        report_access_object = models.NewReportAccessModel.objects.filter(Q(client_id = client_id)|Q(package_id__in = accessible_package_list))
+        # will throw erro if client has no acess
         print('rao= ', report_access_object[0])
 
         # report_id = models.NewReportModel.objects.filter(report_name=report_name)
 
         if report_name:
             report_id =  models.NewReportModel.objects.filter(report_name = self.request.query_params['rep'])[0]
-            print('rep_id = ',report_id.id)
+            # print('rep_id = ',report_id.id)
         else:
             report_id = query_params.get('rep_id')
-            # report_id = int(report_id)
-        
+            report_id =  models.NewReportModel.objects.filter(id= report_id)[0]
+        available_pages = []
         match  = False
+        print('rao0=',report_access_object[0].report_id)     
+        print('rid=',report_id)   
         for i in range(len(report_access_object)):
+            print(i)
             if report_id.free == True:
                 match = True
                 print('free')
                 break
             elif report_access_object[i].report_id == report_id:
                 match = True
+                available_pages = report_access_object[i].report_pages.all()
                 print('match')
                 break
+        print('available_pages = ', available_pages)
+        li = []
+        for i in available_pages:
+            li.append(i.id)
+        print('li = ', li)
         if match:
+            # filtering on newreportpages model and not taking in account of reportpages in newreportacessmodel
             res = self.queryset.filter(report = report_id)
-            ans = []
+            new_res = []
+            if len(li)>0:
+                for i  in res:
+                    if i.id in li:
+                        new_res.append(i)
+                print('new_res = ', new_res)
+                # ans = []
+                res = new_res
             for j in range(len(res)):
                 if res[j].url and res[j].powerbi_report_id  and res[j].report_name:
                     report_name = res[j].report_name
@@ -1192,4 +1271,65 @@ class NewReportPageAccessLCView(ListCreateAPIView):
     queryset = models.NewReportPageAccessModel.objects
     serializer_class = serializers.NewReportPageAccessSerializer
 
+def index(request):  
+   template = loader.get_template('index.html') # getting our template  
+   return HttpResponse(template.render())  
 
+
+class FinalizedAPI(APIView):
+    def get( self, request):
+        query_params = self.request.query_params
+        id = query_params.get("id")
+        report = models.NewReportModel.objects.filter(id= id)[0]
+        return Response({'finalized':report.finalized}, status=status.HTTP_201_CREATED)
+
+class AccessAPI(APIView):
+    def get(self, request):
+
+        data = []
+        for access in models.NewReportAccessModel.objects.all():
+            # Get the client name and report name from the report_id foreign key
+            try:
+                client_name = access.client_id.name
+                report_name = access.report_id.report_name
+
+            # Get the players and report pages as comma-separated strings
+                players = ', '.join([player.player_name for player in access.players.all()])
+                report_pages = ', '.join([page.page_name for page in access.report_pages.all()])
+
+                data.append([client_name, report_name, players, report_pages])
+            except:
+                package_id = access.package_id
+                print('package_id = ', package_id)
+                li = models.ClientModel.objects.filter(package=package_id)
+
+                client_name= ', '.join([i.name for i in li])
+                report_name = access.report_id.report_name
+                players = ', '.join([player.player_name for player in access.players.all()])
+                report_pages = ', '.join([page.page_name for page in access.report_pages.all()])
+                data.append([client_name, report_name, players, report_pages])
+
+        user_info = []
+        for user in models.User.objects.all():
+            client_name = user.client.name
+            email = user.email
+            user_info.append([client_name, email])
+        df1 = pd.DataFrame(user_info, columns=['Client Name', 'email'])
+
+        # Create a pandas DataFrame
+        df = pd.DataFrame(data, columns=['Client Name', 'Report Name', 'Players', 'Report Pages'])
+
+        writer = pd.ExcelWriter('output.xlsx', engine='xlsxwriter')
+
+        # Write each DataFrame to a separate sheet
+        df.to_excel(writer, sheet_name='Sheet1', index=False)
+        df1.to_excel(writer, sheet_name='Sheet2', index=False)
+        writer.save()
+        with open('output.xlsx', 'rb') as file:
+            response = HttpResponse(file.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = 'attachment; filename=output.xlsx'
+
+        return response
+
+        # return Response({'excel_link': 'hello'},  status=status.HTTP_200_OK)
+        
