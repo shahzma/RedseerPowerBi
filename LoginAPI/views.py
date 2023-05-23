@@ -2,6 +2,7 @@
 # from django.contrib.auth import authenticate, login, logout
 from http import client
 from django.http import JsonResponse, HttpResponse,FileResponse
+from django.views.decorators.cache import cache_page
 from django.core.cache import cache
 
 from django.template import loader  
@@ -77,6 +78,9 @@ db = pymysql.connect(
         db='content_data',
         ssl = {'ssl':{'tls': True}}
         )
+
+def generate_cache_key(rep_value):
+    return f'new_report_pages:{rep_value}'
 
 
 def start_end_date(month):
@@ -1110,7 +1114,7 @@ class NewReportPagesLCView(ListCreateAPIView):
     def get_queryset(self):
         query_params = self.request.query_params
         report_name = query_params.get("rep")
-        
+
         client_id = self.request.user.client_id
         # print('clid = ',client_id)
 
@@ -1133,7 +1137,6 @@ class NewReportPagesLCView(ListCreateAPIView):
         print('rao0=',report_access_object[0].report_id)     
         print('rid=',report_id)   
         for i in range(len(report_access_object)):
-            print(i)
             if report_id.free == True:
                 match = True
                 print('free')
@@ -1144,21 +1147,36 @@ class NewReportPagesLCView(ListCreateAPIView):
                 print('match')
                 break
         print('available_pages = ', available_pages)
-        li = []
+        li_available_pageid = []
         for i in available_pages:
-            li.append(i.id)
-        print('li = ', li)
+            li_available_pageid.append(i.id)
+        print('li = ', li_available_pageid)
         if match:
+            # check if user has access to value in cache
+
             # filtering on newreportpages model and not taking in account of reportpages in newreportacessmodel
-            res = self.queryset.filter(report = report_id)
+            res = self.queryset.filter(report = report_id).exclude(page_name="Subscription")
+            subscription = self.queryset.filter(page_name = 'Subscription')[0]
+            # subscription = res[len(res)-1]
+            # res = res[:len(res)-1]
+            print('res = ', res)
             new_res = []
-            if len(li)>0:
+            if len(li_available_pageid)>0:
                 for i  in res:
-                    if i.id in li:
+                    if i.id in li_available_pageid:
                         new_res.append(i)
-                print('new_res = ', new_res)
                 # ans = []
+                new_res.append(subscription)
                 res = new_res
+            print('pages = ', res)
+            res_string = ''
+            for i in range(len(res)):
+                res_string+=res[i].page_name
+            print('res_string=', res_string)
+            cache_key = generate_cache_key(res_string)
+            cached_response = cache.get(cache_key)
+            if cached_response:
+                return cached_response
             for j in range(len(res)):
                 if res[j].url and res[j].powerbi_report_id  and res[j].report_name:
                     report_name = res[j].report_name
@@ -1212,6 +1230,7 @@ class NewReportPagesLCView(ListCreateAPIView):
                     embed_token = response.json()['token']
                     res[j].embed=embed_token
                     res[j].save()
+            cache.set(cache_key, res, 60 * 30)
             return res
 
 
@@ -1332,4 +1351,20 @@ class AccessAPI(APIView):
         return response
 
         # return Response({'excel_link': 'hello'},  status=status.HTTP_200_OK)
+
+class EmailApi(APIView):
+    def get(self, request):
+        email = self.request.query_params.get('email')
+        msg = EmailMessage(
+                'New Susbscription Requests',
+                f'Hello Teammate, <br><br> A new report has been requested for subscription by user with email 【{email}] <br><br>Cheers,<br>Team Benchmarks',
+                settings.EMAIL_HOST_USER,
+                ['operations@redseerconsulting.com']
+            )
+        msg.content_subtype = "html"
+        mail_status = msg.send()
+        print(mail_status)
+        return Response({'email': 'sent'},  status=status.HTTP_200_OK)
+
+
         

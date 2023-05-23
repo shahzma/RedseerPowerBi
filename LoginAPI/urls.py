@@ -5,7 +5,7 @@ from django.urls import path
 from django.conf.urls import include
 from .views import LogOutApi, LoginApi, UserViewSet, CompanyLCView, ReportAccessLCView, ReportAccessRUDView, ReportLCView,CompanyDomainLCView,MSAccessTokenAPI, PlayerLCView, ReportPageApi\
     ,ReportPlayerLCView, IconLCView, ValidateCurrentToken, GoogleLoginApi, MicrosoftLoginApi, ExcelLinkApi, TagLCView, UserPopupLCView, NewReportAPI, NewReportPagesLCView, UserCurrencyLCView,\
-         NewReportAccessLCView, NewReportPageAccessLCView, NewReportAccessTree, NodeChildrenAPI, SubPlayerLCView, DummyNodesAPI, index, FinalizedAPI,AccessAPI
+         NewReportAccessLCView, NewReportPageAccessLCView, NewReportAccessTree, NodeChildrenAPI, SubPlayerLCView, DummyNodesAPI, index, FinalizedAPI,AccessAPI, EmailApi
 
 
 router = routers.DefaultRouter()
@@ -122,6 +122,10 @@ accessapi_urls = [
     path('',AccessAPI.as_view(), name = 'lc')
 ]
 
+sendmail_urls = [
+    path('',EmailApi.as_view(), name = 'lc')
+]
+
 urlpatterns = [
     path('', include(router.urls)),
     path('authorise/', include(authUrls), name='authorise'),
@@ -151,5 +155,6 @@ urlpatterns = [
     path('dummynodes/', include(dummynodes_urls), name = 'dummynodes'),
     path('finalized/', include(finalized_urls), name = 'finalized'),
     path('index/', index),
-    path('accessapi/', include(accessapi_urls), name = 'accessapi')
+    path('accessapi/', include(accessapi_urls), name = 'accessapi'),
+    path('sendmail/', include(sendmail_urls), name = 'sendmail')
     ]

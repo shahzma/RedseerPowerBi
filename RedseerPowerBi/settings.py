@@ -131,9 +131,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-suffix',  # Set a unique suffix to prevent cache collisions in multi-process environments
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379",
     }
 }
 
