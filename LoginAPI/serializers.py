@@ -1,6 +1,6 @@
 # from django.contrib.auth.models import User
 from asyncore import read
-from dataclasses import field
+# from dataclasses import field
 import re
 from rest_framework.authtoken.models import Token
 from rest_framework import serializers

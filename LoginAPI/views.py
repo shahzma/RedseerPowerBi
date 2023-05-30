@@ -2,9 +2,9 @@
 # from django.contrib.auth import authenticate, login, logout
 from http import client
 from django.http import JsonResponse, HttpResponse,FileResponse
+from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.core.cache import cache
-
 from django.template import loader  
 from django.shortcuts import render
 from . import models, serializers
@@ -82,6 +82,12 @@ db = pymysql.connect(
 def generate_cache_key(rep_value):
     return f'new_report_pages:{rep_value}'
 
+def generate_cache_key_report(client_id, report_name):
+    x = str(client_id)+str(report_name)
+    return f'report:{x}'
+
+def generate_cache_key_client(client_id):
+    return f'client:{client_id}'
 
 def start_end_date(month):
     datetime_object = datetime.strptime(month[:3], "%b")
@@ -200,11 +206,17 @@ def temp_dict(req_player):
 ## template required
 def req_template(name):
     yls= upload_resumable1(name)
-    print('yls = ',yls)
+    # print('yls = ',yls)
     # if not yls.startswith("~") and yls.endswith(".xlsx"):
     #     print(file)
     df_1=pd.read_excel(yls,"Sheet1", header=None, index_col=False)
     return df_1
+
+def convert_to_2_decimal(value):
+    if isinstance(value, (int, float)):
+        return round(value, 2)
+    else:
+        return value
 
 # Create your views here.
 class UserViewSet(viewsets.ModelViewSet):
@@ -791,18 +803,174 @@ class ExcelLinkApi(APIView):
     
     def get(self, request, *args, **kwargs):
         # print('acount_sid=',os.getenv("account_sid"))
+        # client_id = self.request.query_params['client_id']
+        # report_name  = self.request.query_params['report_name']
+        # report_model_object = models.ReportModel.objects.filter(report_name = report_name)[0]
+        # report_id = report_model_object.id
+        # print(report_name, report_id, client_id)
+        # # report_id = 1
+        # report_access_object = models.ReportAccessModel.objects.filter(client_id = client_id, report_id = report_id)[0]
+        # player_queryset = report_access_object.players.all()
+        # start_date = report_access_object.start_date
+        # end_date = report_access_object.end_date
+        # company_list=  [i.player_id for i in player_queryset]
+        # print(company_list)
+        # def req_output(req_player):
+        #     os.chdir(os.getenv("loc"))
+        #     pl_name_dict=name_dict(req_player)   #makes pl ids and name dict from input player_ids
+        #     pl_temp_dict=temp_dict(req_player)   #makes pl_ids and their corresponding template name dict from input player_ids
+            
+        #     dfs=[]
+        #     sheets=[]
+            
+        #     for key, value in pl_name_dict.items():
+        #         print(key)
+        #         pl_id=key
+        #         sheet=value
+        #         name=pl_temp_dict[pl_id]
+        #         file_name = name+".xlsx"                     #data File name
+        #         df_1=req_template(file_name)  #current player template
+        #         date_dict=date_dict_f(pl_id)   #date list for the player , coming from function
+        #         # date filter 
+        #         for i in date_dict:
+        #             if start_date is not None:
+        #                 if str(i.get('start_date'))<str(start_date):
+        #                     try:
+        #                         del(i['start_date'])
+        #                         del(i['end_date'])
+        #                     except:
+        #                         pass
+        #             if end_date is not None:
+        #                 if str(i.get('end_date'))>str(end_date):
+        #                     try:
+        #                         del(i['start_date'])
+        #                         del(i['end_date'])
+        #                     except:
+        #                         pass
+        #         date_dict = list(filter(None, date_dict))
+        #         #date_filter_end 
+
+        #         s="select * from main_data where player_id='"+str(pl_id)+"';"
+        #         cur= db.cursor()
+        #         cur.execute(s)
+        #         d=cur.fetchall()
+        #         cur.close()
+        #         dat=pd.DataFrame(d)
+        #         if dat.empty == False:
+        #             dat=dat[[1,2,3,4,5]]
+        #             dat=dat.rename(columns={1:"pl_id",2:"start_date",3:"end_date",4:"par_id",5:"value"})
+        #             dat['start_date']=dat['start_date'].apply(str)
+        #             dat['end_date']=dat['end_date'].apply(str)
+        #         else:
+        #             dat = {}
+                
+        #         c=3
+        #         df_1[c]=" "
+        #         for i in date_dict:
+        #             sd=i['start_date']
+        #             ed=i['end_date']
+        #             ed=str(ed)
+        #             sd=str(sd)
+        #             #print(sd, date_conversion(sd))
+        #             df_1.iat[0,c]=date_conversion(sd)    #date text conversion
+        #             N=len(df_1)
+        #             for j in range(1,N):
+        #                 par_id=df_1.iat[j,0]
+        #                 #print(par_id)
+        #                 if str(par_id)=='nan':
+        #                     continue
+
+        #                 z=dat[(dat["pl_id"] == pl_id) & (dat["start_date"] == str(sd))& (dat["end_date"] == str(ed))& (dat["par_id"] == par_id)]    
+        #                 if len(z)!=0:
+        #                     val=z.iloc[0,4]
+        #                     #print(val)
+        #                     df_1.iloc[j,c]=val
+
+        #             c=c+1
+        #             df_1[c]=" "
+        #         # print(df_1)
+        #         try:
+        #             df_1.columns = df_1.iloc[0]
+        #             df_1=df_1.drop(df_1.index[0])
+        #             df_1 = df_1.drop('par_id', axis=1)
+
+        #             dfs.append(df_1)
+        #         except:
+        #             pass
+        #         sheets.append(sheet)
+            
+        #     ran_name=rand_str()
+        #     sheet_ran_name = ran_name+".xlsx"
+        #     print('dfs = ', dfs)
+        #     dfs_tabs(dfs, sheets, sheet_ran_name)      #it will upload the output file in local location
+            
+        #     ran_name2=rand_str()
+        #     final_output_name = ran_name2+".xlsx"
+        #     upload_resumable(sheet_ran_name,final_output_name) #it will upload local to onedrive folder
+        #     download_link=download_url(final_output_name)  #it will give download url for the onedrive excel
+        #     return download_link   
+        # link = req_output(company_list)
+
+        return Response({'excel_link': 'link'},  status=status.HTTP_200_OK)
+
+class NewExcelLinkApi(APIView):
+
+    def get_associated_players(self,report_id):
+        parent_node = models.NewReportModel.objects.get(id=report_id)
+
+        # Get the children nodes for the parent node
+        children = parent_node.get_descendants()
+
+        # Get the names of the children nodes
+        children_li = [child.report_name for child in children]
+        return children_li
+    
+    def get(self, request, *args, **kwargs):
+        # print('acount_sid=',os.getenv("account_sid"))
+        company_list = []
         client_id = self.request.query_params['client_id']
         report_name  = self.request.query_params['report_name']
-        report_model_object = models.ReportModel.objects.filter(report_name = report_name)[0]
+        report_model_object = models.NewReportModel.objects.filter(report_name = report_name)[0]
         report_id = report_model_object.id
         print(report_name, report_id, client_id)
         # report_id = 1
-        report_access_object = models.ReportAccessModel.objects.filter(client_id = client_id, report_id = report_id)[0]
-        player_queryset = report_access_object.players.all()
+        # check if client has access report_id if yes check which players he has access to. need to make check in both package a
+        # qs = models.NewReportAccessModel.objects.filter(Q(client_id = client_id)|Q(package_id__in = accessible_package_list))
+
+        # check if client has access to report(which can be company)
+        try:
+            report_access_object = models.NewReportAccessModel.objects.filter(client_id = client_id, report_id = report_id)[0]
+            print('rao = ',report_access_object)
+
+            # check if report is player
+            if report_access_object:
+                try:
+                    li = self.get_associated_players(report_id)
+                    print('li = ', li)
+                    if len(li)>0:
+                        qs = models.Player.objects.filter(player_name__in = li)
+                        print('qs=', qs)
+                        for i in qs:
+                            company_list.append(i.player_id)
+                    else:
+                        player_id = models.Player.objects.filter(player_name = report_name)[0].player_id
+                        company_list = [player_id]
+                except:
+                    company_list = []
+        except:
+            company_list = []
+        
+        if len(company_list)<1:
+            return Response({"msg": " Failed excel creation "}, status=status.HTTP_400_BAD_REQUEST)
+
+        # check if user has access to this player
+
+        # report_access_object = models.NewReportAccessModel.objects.filter(client_id = client_id, report_id = report_id)[0]
+        # player_queryset = report_access_object.players.all()
         start_date = report_access_object.start_date
         end_date = report_access_object.end_date
-        company_list=  [i.player_id for i in player_queryset]
-        print(company_list)
+        # company_list=  [i.player_id for i in player_queryset]
+        # print(company_list)
         def req_output(req_player):
             os.chdir(os.getenv("loc"))
             pl_name_dict=name_dict(req_player)   #makes pl ids and name dict from input player_ids
@@ -876,11 +1044,14 @@ class ExcelLinkApi(APIView):
 
                     c=c+1
                     df_1[c]=" "
-                print(df_1)
+                print('df1=',df_1)
                 try:
                     df_1.columns = df_1.iloc[0]
                     df_1=df_1.drop(df_1.index[0])
-                    df_1 = df_1.drop('par_id', axis=1)
+                    # df_1 = df_1.drop('par_id', axis=1)
+                    df_1= df_1[df_1.columns[1:]]
+                    df_1 = df_1.applymap(convert_to_2_decimal)
+                    print('df1=',df_1)
 
                     dfs.append(df_1)
                 except:
@@ -889,7 +1060,7 @@ class ExcelLinkApi(APIView):
             
             ran_name=rand_str()
             sheet_ran_name = ran_name+".xlsx"
-
+            print('dfs=', dfs)
             dfs_tabs(dfs, sheets, sheet_ran_name)      #it will upload the output file in local location
             
             ran_name2=rand_str()
@@ -900,6 +1071,7 @@ class ExcelLinkApi(APIView):
         link = req_output(company_list)
 
         return Response({'excel_link': link},  status=status.HTTP_200_OK)
+
 
 
 class TagLCView(ListCreateAPIView):
@@ -1011,6 +1183,7 @@ class NewReportAPI(ListCreateAPIView):
         # rep = self.request.query_params['rep']
         # need root_node to go anywhere in a tree
         # root_nodes = models.NewReportModel.objects.filter(report_name= rep)
+
         if 'rep' in self.request.query_params:
             rep = self.request.query_params['rep']
             root_nodes = models.NewReportModel.objects.filter(report_name=rep)
@@ -1019,6 +1192,12 @@ class NewReportAPI(ListCreateAPIView):
 
         if 'client_id' in self.request.query_params:
             client_id  = self.request.query_params['client_id']
+            if 'rep' in self.request.query_params:
+                report_val = self.request.query_params['rep']
+                cache_key = generate_cache_key_report(client_id, report_val)
+                cached_response = cache.get(cache_key)
+                # if cached_response:
+                #     return cached_response
             accessible_package_list = self.get_accessible_package(client_id)
             qs = models.NewReportAccessModel.objects.filter(Q(client_id = client_id)|Q(package_id__in = accessible_package_list))
             li  = []
@@ -1038,12 +1217,15 @@ class NewReportAPI(ListCreateAPIView):
             # print(li)
             # res = tree_data
             res = sorted(tree_data, key=self.sort_nodes)
+            cache.set(cache_key, res, 60 * 60 * 2)
             return JsonResponse(res, safe=False)
         tree_data = self.get_tree_data(root_nodes)
         res = tree_data
         return JsonResponse(res, safe=False)
 
+
 class DummyNodesAPI(APIView):
+    @method_decorator(cache_page(60*60*12))
     def get( self, request):
         nodes = models.NewReportModel.objects.filter( has_link= False)
         res = []
@@ -1182,16 +1364,22 @@ class NewReportPagesLCView(ListCreateAPIView):
                     report_name = res[j].report_name
                     email = 'digital@redseerconsulting.com'
                     url = "https://login.microsoftonline.com/common/oauth2/token"
-                    payload = "grant_type=password\r\n&username=1mg@redseerconsulting.com\r\n&password=Waj179490\r\n&client_id=a9826bb1-7b52-4b3f-80f2-2ffa4d1cd578\r\n&client_secret=cuV8Q~hl7__PcjsvYSxTDHraG4vcMMLTRQRtyceA\r\n&resource=https://analysis.windows.net/powerbi/api"
+                    # payload = "grant_type=password\r\n&username=1mg@redseerconsulting.com\r\n&password=Waj179490\r\n&client_id=a9826bb1-7b52-4b3f-80f2-2ffa4d1cd578\r\n&client_secret=cuV8Q~hl7__PcjsvYSxTDHraG4vcMMLTRQRtyceA\r\n&resource=https://analysis.windows.net/powerbi/api"
+                    payload = 'grant_type=password\r\n&username=digital@beeroute.onmicrosoft.com\r\n&password=Redseer@123\r\n&client_id=48ac3ed4-da07-47b6-be7f-a606360f5b7f\r\n&client_secret=jMB8Q~EO1lS7Ix2nHfbP7i2Aw-hUMX0Ogdvw6btk\r\n&resource=https://analysis.windows.net/powerbi/api'
+                    # headers = {
+                    # 'Content-Type': 'application/x-www-form-urlencoded',
+                    # 'Cookie': 'fpc=Aus9rQPMtNtLkL7XzywalRLdloFgAQAAABHzetoOAAAA; stsservicecookie=estsfd; x-ms-gateway-slice=estsfd'
+                    # }
                     headers = {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'Cookie': 'fpc=Aus9rQPMtNtLkL7XzywalRLdloFgAQAAABHzetoOAAAA; stsservicecookie=estsfd; x-ms-gateway-slice=estsfd'
+                    'Cookie': 'fpc=AkJd98RyXO9Ktl7yo8w_EIFa5k8pAQAAADjN_9sOAAAAO1-11QEAAACtzf_bDgAAAA; stsservicecookie=estsfd; x-ms-gateway-slice=estsfd'
                     }
                     response = requests.request("POST", url, headers=headers, data=payload)
                     response = response.json()
                     access_token = response["access_token"]
 
-                    workspace_url = "https://api.powerbi.com/v1.0/myorg/groups/67294232-0c81-43c2-a16d-22544a0a390b/reports/"
+                    # workspace_url = "https://api.powerbi.com/v1.0/myorg/groups/67294232-0c81-43c2-a16d-22544a0a390b/reports/"
+                    workspace_url = 'https://api.powerbi.com/v1.0/myorg/groups/bc31597a-f402-4f15-86d9-dfadbd9cc7a5/reports/'
                     workspace_payload={}
                     workspace_headers = {
                     'Authorization': f'Bearer {access_token}'
@@ -1211,7 +1399,8 @@ class NewReportPagesLCView(ListCreateAPIView):
                             report_datasetId = i['datasetId']
                     # print(report_id)
                     # print('report_datasetid=',report_datasetId)
-                    embed_url = f"https://api.powerbi.com/v1.0/myorg/groups/67294232-0c81-43c2-a16d-22544a0a390b/reports/{report_id}/GenerateToken"
+                    # embed_url = f"https://api.powerbi.com/v1.0/myorg/groups/67294232-0c81-43c2-a16d-22544a0a390b/reports/{report_id}/GenerateToken"
+                    embed_url = f"https://api.powerbi.com/v1.0/myorg/groups/bc31597a-f402-4f15-86d9-dfadbd9cc7a5/reports/{report_id}/GenerateToken"
                     embed_payload = json.dumps({
                     "accessLevel": "View",
                     "allowSaveAs": "false",
@@ -1271,6 +1460,8 @@ class UserCurrencyLCView(ListCreateAPIView):
         serializer = serializers.UserCurrencySerializer(user_curr_obj)
         return Response(serializer.data)
 
+
+
 class NewReportAccessLCView(ListCreateAPIView):
     queryset = models.NewReportAccessModel.objects
     serializer_class = serializers.NewReportAccessSerializer
@@ -1278,12 +1469,17 @@ class NewReportAccessLCView(ListCreateAPIView):
     def get_queryset(self):
         query_params = self.request.query_params
         client_id = query_params.get("client_id")
+        cache_key = generate_cache_key_client(client_id)
+        cached_response = cache.get(cache_key)
+        if cached_response:
+            return cached_response
         free_reports = models.NewReportModel.objects.filter(free = True)
         print(free_reports[0].id)
         # client_id = 1
         if client_id:
             self.queryset = self.queryset.filter(client_id = client_id)
         print(self.queryset[0])
+        cache.set(cache_key,self.queryset, 60*60*2)
         return self.queryset
     
 class NewReportPageAccessLCView(ListCreateAPIView):

@@ -132,6 +132,7 @@ class NewReportPagesModel(models.Model):
     page_type = models.CharField(default = None, blank=True, null = True, max_length=200, choices=FILTER_CHOICES)
     component = models.CharField(max_length=200, default=None, null=True, blank=True)
     component_variable = models.TextField(default=None, null=True, blank=True)
+    excel_access = models.BooleanField(default=False)
     def __str__(self):
         return self.page_name
 
@@ -286,3 +287,5 @@ class User(AbstractUser):
     client = models.ForeignKey(ClientModel , on_delete=models.CASCADE)
     counter = models.IntegerField(default=0)
     gender_male = models.BooleanField(default=True ,blank=True,null=True)
+
+# User._meta.get_field('email')._unique = True
