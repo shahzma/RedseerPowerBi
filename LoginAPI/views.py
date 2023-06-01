@@ -5,6 +5,7 @@ from django.http import JsonResponse, HttpResponse,FileResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.core.cache import cache
+from django.db import connection
 from django.template import loader  
 from django.shortcuts import render
 from . import models, serializers
@@ -31,14 +32,13 @@ from django.core.exceptions import ValidationError
 import requests
 from django.db.models import BooleanField, Value, Q
 from itertools import chain
-from openpyxl import Workbook
+# from openpyxl import Workbook
 
 import pandas as pd
 import os
 import pymysql
 import namegenerator as rng
-from openpyxl import workbook
-
+import openpyxl
 import datetime
 from datetime import datetime
 from datetime import date
@@ -100,7 +100,7 @@ def start_end_date(month):
     ED= datetime.strptime(ed,'%d.%m.%y').strftime('%Y-%m-%d')
     return(SD,ED)
 
-def date_conversion(a):
+def date_conversion(a):         #this converts date format to text type -to be added in excel output file
     month_num=a[5:7]
     yr=a[:4]
     datetime_object = datetime.strptime(str(month_num), "%m")
@@ -108,30 +108,31 @@ def date_conversion(a):
     month_conv= month_name+"'"+yr
     return month_conv
 
-def date_dict_f(pl_id):
+def date_dict_f(pl_id):        #this returns list of all the dates for which data exist for a player
     s="select * from main_data where player_id='"+str(pl_id)+"';"
-    cur= db.cursor()
+    # cur = db.cursor()
+    cur = connection.cursor()
+
     cur.execute(s)
     d=cur.fetchall()
-    cur.close()
     date=pd.DataFrame.from_dict(d)
-    if date.empty == False:
-        date=date[[2,3]]
-        date=date.drop_duplicates(subset={2,3})
-        date=date.rename(columns={2:'start_date',3:'end_date'})
-        date_dict=date.to_dict(orient='records')
-        return date_dict
-    else:
-        return {}
+    date=date[[2,3]]
+    date=date.drop_duplicates(subset={2,3})
+    date=date.rename(columns={2:'start_date',3:'end_date'})
+    date_dict=date.to_dict(orient='records')
+    cur.close()
+
+    return date_dict
 
 # function to export different dfs in one excel file having 
-def dfs_tabs(df_list, sheet_list, file_name):
+#this code saves the export file at a local location 
+def dfs_tabs(df_list, sheet_list, file_name):     #df_list- dataframes list, their tab name list- sheet_list                                                         
     writer = pd.ExcelWriter(file_name,engine='xlsxwriter')   
     for dataframe, sheet in zip(df_list, sheet_list):
         dataframe.to_excel(writer, sheet_name=sheet, startrow=0 , startcol=0, index=False)   
     writer.save()
     
-def rand_str():
+def rand_str():          #it gives a 7 digit random str which we use as the name of out final output file
     N = 7
     res = ''.join(random.choices(string.ascii_uppercase +
                                  string.digits, k=N))
@@ -155,9 +156,9 @@ def upload_resumable(local_file_name,file_name):
     token = cognos_to_onedrive.acquire_token_by_username_password(USERNAME,PASSWORD,SCOPES)
     headers = {'Authorization': 'Bearer {}'.format(token['access_token'])}
     
-    onedrive_destination = '{}/{}/me/drive/root:/Data backend check/BPC'.format(RESOURCE_URL,API_VERSION)  #onedrive location to upload the local file
-    p = os.getenv("loc")+local_file_name
-#     p='C:/Users/KajalVerma/OneDrive - Redseer Management Consulting Private Limited/Data backend check/trial/'+local_file_name
+    onedrive_destination = '{}/{}/me/drive/root:/Product Data Excels (Do not Touch)/Temporary_OP_sheets'.format(RESOURCE_URL,API_VERSION)  #onedrive location to upload the local file
+    #local file location
+    p='/Users/shahzmaalif/Documents/excel_files/'+local_file_name
     file_data = open(p, 'rb')
     file_path = p
     file_size = os.stat(file_path).st_size
@@ -165,53 +166,51 @@ def upload_resumable(local_file_name,file_name):
     if file_size < 4100000:
         #Perform is simple upload to the API
         r = requests.put(onedrive_destination+"/"+file_name+":/content", data=file_data, headers=headers)
-
+        
 def download_url(file_name):
     # Creating a public client app, Aquire an access token for the user and set the header for API calls
     cognos_to_onedrive = msal.PublicClientApplication(CLIENT_ID, authority=AUTHORITY_URL)
     token = cognos_to_onedrive.acquire_token_by_username_password(USERNAME,PASSWORD,SCOPES)
     header = {'Authorization': 'Bearer {}'.format(token['access_token'])}
     # download
-    response = requests.get('{}/{}/me/drive/root:/Data backend check/BPC'.format(RESOURCE_URL,API_VERSION) + '/' + file_name + ':/content', headers=header)
+    response = requests.get('{}/{}/me/drive/root:/Product Data Excels (Do not Touch)/Temporary_OP_sheets'.format(RESOURCE_URL,API_VERSION) + '/' + file_name + ':/content', headers=header)
 
 
     return response.url
-
+    
 def name_dict(req_player):
     pl_name_dict={}
     for pl in req_player:
         s="select player_name from player where player_id='"+str(pl)+"';"
-        cur= db.cursor()
+        cur = connection.cursor()
+        # cur = db.cursor()
         cur.execute(s)
         name=cur.fetchall()
-        cur.close()
         name=pd.DataFrame(name)
         req_name=name.iloc[0,0]
         pl_name_dict[pl]=req_name
+        cur.close()
     return pl_name_dict
 
 def temp_dict(req_player):
     pl_temp_dict={}
     for pl in req_player:
         s="select template_name from player where player_id='"+str(pl)+"';"
-        cur= db.cursor()
+        cur = connection.cursor()
+        # cur = db.cursor()
         cur.execute(s)
         name=cur.fetchall()
-        cur.close()
         name=pd.DataFrame(name)
         req_name=name.iloc[0,0]
         pl_temp_dict[pl]=req_name
+        cur.close()
     return pl_temp_dict
 
 ## template required
 def req_template(name):
     yls= upload_resumable1(name)
-    # print('yls = ',yls)
-    # if not yls.startswith("~") and yls.endswith(".xlsx"):
-    #     print(file)
     df_1=pd.read_excel(yls,"Sheet1", header=None, index_col=False)
     return df_1
-
 def convert_to_2_decimal(value):
     if isinstance(value, (int, float)):
         return round(value, 2)
@@ -914,7 +913,8 @@ class ExcelLinkApi(APIView):
         return Response({'excel_link': 'link'},  status=status.HTTP_200_OK)
 
 class NewExcelLinkApi(APIView):
-
+    # permission_classes = (IsAuthenticated,)
+    # authentication_classes = (TokenAuthentication,)
     def get_associated_players(self,report_id):
         parent_node = models.NewReportModel.objects.get(id=report_id)
 
@@ -923,7 +923,8 @@ class NewExcelLinkApi(APIView):
 
         # Get the names of the children nodes
         children_li = [child.report_name for child in children]
-        return children_li
+        children_ids = [child.id for child in children]
+        return [children_li, children_ids]
     
     def get(self, request, *args, **kwargs):
         # print('acount_sid=',os.getenv("account_sid"))
@@ -941,14 +942,20 @@ class NewExcelLinkApi(APIView):
         try:
             report_access_object = models.NewReportAccessModel.objects.filter(client_id = client_id, report_id = report_id)[0]
             print('rao = ',report_access_object)
-
+            available_reports = list(models.NewReportAccessModel.objects.filter(client_id=client_id).values_list('report_id', flat=True))
+            print('available_reps=',available_reports)
             # check if report is player
             if report_access_object:
                 try:
                     li = self.get_associated_players(report_id)
+                    intersection = list(set(li[1]) & set(available_reports))
+
+                    print(intersection)
+                    names = list(models.NewReportModel.objects.filter(id__in = intersection).values_list('report_name', flat=True))
+                    print(names)
                     print('li = ', li)
-                    if len(li)>0:
-                        qs = models.Player.objects.filter(player_name__in = li)
+                    if len(li[0])>0:
+                        qs = models.Player.objects.filter(player_name__in = names)
                         print('qs=', qs)
                         for i in qs:
                             company_list.append(i.player_id)
@@ -978,49 +985,36 @@ class NewExcelLinkApi(APIView):
             
             dfs=[]
             sheets=[]
+            discl_df=pd.DataFrame()
+            sheet='Disclaimer'
+            dfs.append(discl_df)
+            sheets.append(sheet)
             
             for key, value in pl_name_dict.items():
-                print(key)
                 pl_id=key
                 sheet=value
                 name=pl_temp_dict[pl_id]
+                print(name)
                 file_name = name+".xlsx"                     #data File name
+                print(file_name)
                 df_1=req_template(file_name)  #current player template
                 date_dict=date_dict_f(pl_id)   #date list for the player , coming from function
-                # date filter 
-                for i in date_dict:
-                    if start_date is not None:
-                        if str(i.get('start_date'))<str(start_date):
-                            try:
-                                del(i['start_date'])
-                                del(i['end_date'])
-                            except:
-                                pass
-                    if end_date is not None:
-                        if str(i.get('end_date'))>str(end_date):
-                            try:
-                                del(i['start_date'])
-                                del(i['end_date'])
-                            except:
-                                pass
-                date_dict = list(filter(None, date_dict))
-                #date_filter_end 
-
+                
                 s="select * from main_data where player_id='"+str(pl_id)+"';"
-                cur= db.cursor()
+                cur = connection.cursor()
+                # cur = db.cursor()
                 cur.execute(s)
                 d=cur.fetchall()
                 cur.close()
                 dat=pd.DataFrame(d)
-                if dat.empty == False:
-                    dat=dat[[1,2,3,4,5]]
-                    dat=dat.rename(columns={1:"pl_id",2:"start_date",3:"end_date",4:"par_id",5:"value"})
-                    dat['start_date']=dat['start_date'].apply(str)
-                    dat['end_date']=dat['end_date'].apply(str)
-                else:
-                    dat = {}
+                dat=dat[[1,2,3,4,5]]
+                dat=dat.rename(columns={1:"pl_id",2:"start_date",3:"end_date",4:"par_id",5:"value"})
+                dat['start_date']=dat['start_date'].apply(str)
+                dat['end_date']=dat['end_date'].apply(str)
+
+                print(dat)
                 
-                c=3
+                c=len(df_1.columns)
                 df_1[c]=" "
                 for i in date_dict:
                     sd=i['start_date']
@@ -1044,18 +1038,13 @@ class NewExcelLinkApi(APIView):
 
                     c=c+1
                     df_1[c]=" "
-                print('df1=',df_1)
-                try:
-                    df_1.columns = df_1.iloc[0]
-                    df_1=df_1.drop(df_1.index[0])
-                    # df_1 = df_1.drop('par_id', axis=1)
-                    df_1= df_1[df_1.columns[1:]]
-                    df_1 = df_1.applymap(convert_to_2_decimal)
-                    print('df1=',df_1)
 
-                    dfs.append(df_1)
-                except:
-                    pass
+                df_1 = df_1.drop(0, axis=1)
+                df_1.columns = df_1.iloc[0]
+                df_1=df_1.drop(df_1.index[0])
+                
+
+                dfs.append(df_1)
                 sheets.append(sheet)
             
             ran_name=rand_str()
@@ -1067,9 +1056,50 @@ class NewExcelLinkApi(APIView):
             final_output_name = ran_name2+".xlsx"
             upload_resumable(sheet_ran_name,final_output_name) #it will upload local to onedrive folder
             download_link=download_url(final_output_name)  #it will give download url for the onedrive excel
-            return download_link   
-        link = req_output(company_list)
+            return download_link
+        def get_link(player_li):
+            li = []
+            path  = os.getenv("loc")
+            for i in player_li:
+                x = path+str(i)+'.xlsx'
+                li.append(x)
+            ran_name=rand_str()
+            sheet_ran_name = ran_name+".xlsx"
+            ran_name2=rand_str()
+            final_output_name = ran_name2+".xlsx"
+            writer = pd.ExcelWriter(path+sheet_ran_name, engine='xlsxwriter')
+            for i in range(len(li)):
+                df = pd.read_excel(li[i])
+                # Write the DataFrame to a sheet in the output Excel file
+                df.to_excel(writer, sheet_name=player_li[i], index=False)
+            writer.save()
 
+            wb = openpyxl.load_workbook(path+sheet_ran_name)
+            png_discl = os.getenv("images_path")+'disclaimer.png'
+            discl = openpyxl.drawing.image.Image(png_discl)
+            sheets = wb.sheetnames
+            ws = wb[sheets[0]]
+            ws.add_image(discl,'A1')
+            print(sheets, len(sheets))
+            for sh in range(1,len(sheets)):
+                w2=wb[sheets[sh]]
+                w2.insert_cols(0)
+                w2.column_dimensions['A'].width = 11
+                w2.column_dimensions['B'].width = 20
+                png_log = os.getenv("images_path")+'log4.png'
+                log = openpyxl.drawing.image.Image(png_log)
+                w2.add_image(log,'A1')
+
+            wb.save(sheet_ran_name)
+
+            upload_resumable(sheet_ran_name,final_output_name) #it will upload local to onedrive folder
+            download_link=download_url(final_output_name) 
+            return download_link
+        # link = req_output(company_list)
+        for i in range(len(names)):
+            if ' ' in names[i]:
+                names[i] = names[i].replace(' ', '_')
+        link = get_link(names)
         return Response({'excel_link': link},  status=status.HTTP_200_OK)
 
 
@@ -1357,8 +1387,8 @@ class NewReportPagesLCView(ListCreateAPIView):
             print('res_string=', res_string)
             cache_key = generate_cache_key(res_string)
             cached_response = cache.get(cache_key)
-            if cached_response:
-                return cached_response
+            # if cached_response:
+            #     return cached_response
             for j in range(len(res)):
                 if res[j].url and res[j].powerbi_report_id  and res[j].report_name:
                     report_name = res[j].report_name

@@ -132,7 +132,7 @@ class NewReportPagesModel(models.Model):
     page_type = models.CharField(default = None, blank=True, null = True, max_length=200, choices=FILTER_CHOICES)
     component = models.CharField(max_length=200, default=None, null=True, blank=True)
     component_variable = models.TextField(default=None, null=True, blank=True)
-    excel_access = models.BooleanField(default=False)
+    
     def __str__(self):
         return self.page_name
 
@@ -245,6 +245,7 @@ class NewReportAccessModel(models.Model):
     end_date = models.DateField(default=get_deadline, blank=True, null=True)
     players = models.ManyToManyField(Player, blank= True, null=True)
     report_pages = models.ManyToManyField(NewReportPagesModel, blank=True, null=True)
+    excel_access = models.BooleanField(default=False)
     def __str__(self):
         return str(self.client_id)
     class Meta:
