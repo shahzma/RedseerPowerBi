@@ -158,7 +158,7 @@ def upload_resumable(local_file_name,file_name):
     
     onedrive_destination = '{}/{}/me/drive/root:/Product Data Excels (Do not Touch)/Temporary_OP_sheets'.format(RESOURCE_URL,API_VERSION)  #onedrive location to upload the local file
     #local file location
-    p='/Users/shahzmaalif/Documents/excel_files/'+local_file_name
+    p=os.getenv("loc")+local_file_name
     file_data = open(p, 'rb')
     file_path = p
     file_size = os.stat(file_path).st_size
@@ -472,16 +472,16 @@ class MSAccessTokenAPI(CreateAPIView):
         #     report_id = query_params.get('rep_id')
 
         url = "https://login.microsoftonline.com/common/oauth2/token"
-        payload = "grant_type=password\r\n&username=1mg@redseerconsulting.com\r\n&password=Waj179490\r\n&client_id=a9826bb1-7b52-4b3f-80f2-2ffa4d1cd578\r\n&client_secret=cuV8Q~hl7__PcjsvYSxTDHraG4vcMMLTRQRtyceA\r\n&resource=https://analysis.windows.net/powerbi/api"
+        payload = 'grant_type=password\r\n&username=digital@beeroute.onmicrosoft.com\r\n&password=Redseer@123\r\n&client_id=48ac3ed4-da07-47b6-be7f-a606360f5b7f\r\n&client_secret=jMB8Q~EO1lS7Ix2nHfbP7i2Aw-hUMX0Ogdvw6btk\r\n&resource=https://analysis.windows.net/powerbi/api'
         headers = {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Cookie': 'fpc=Aus9rQPMtNtLkL7XzywalRLdloFgAQAAABHzetoOAAAA; stsservicecookie=estsfd; x-ms-gateway-slice=estsfd'
+        'Cookie': 'fpc=AkJd98RyXO9Ktl7yo8w_EIFa5k8pAQAAADjN_9sOAAAAO1-11QEAAACtzf_bDgAAAA; stsservicecookie=estsfd; x-ms-gateway-slice=estsfd'
         }
         response = requests.request("POST", url, headers=headers, data=payload)
         response = response.json()
         access_token = response["access_token"]
 
-        workspace_url = "https://api.powerbi.com/v1.0/myorg/groups/67294232-0c81-43c2-a16d-22544a0a390b/reports/"
+        workspace_url = 'https://api.powerbi.com/v1.0/myorg/groups/bc31597a-f402-4f15-86d9-dfadbd9cc7a5/reports/'
         workspace_payload={}
         workspace_headers = {
         'Authorization': f'Bearer {access_token}'
@@ -501,17 +501,17 @@ class MSAccessTokenAPI(CreateAPIView):
                 report_datasetId = i['datasetId']
         # print(report_id)
         # print('report_datasetid=',report_datasetId)
-        embed_url = f"https://api.powerbi.com/v1.0/myorg/groups/67294232-0c81-43c2-a16d-22544a0a390b/reports/{report_id}/GenerateToken"
+        embed_url = f"https://api.powerbi.com/v1.0/myorg/groups/bc31597a-f402-4f15-86d9-dfadbd9cc7a5/reports/{report_id}/GenerateToken"
         embed_payload = json.dumps({
-        "accessLevel": "View",
-        "allowSaveAs": "false",
-         "identities": [{
-        "userpricipalname": "user",
-        "username":email,
-        "roles": ["Client_Dynamic_RLS"],
-        "datasets": [report_datasetId]
-        }]
-        })
+                    "accessLevel": "View",
+                    "allowSaveAs": "false",
+                    "identities": [{
+                    "userpricipalname": "user",
+                    "username":email,
+                    "roles": ["Client_Dynamic_RLS"],
+                    "datasets": [report_datasetId]
+                    }]
+                    })
         embed_headers = {
         'Authorization': f'Bearer {access_token}',
         'Content-Type': 'application/json'
@@ -915,6 +915,16 @@ class ExcelLinkApi(APIView):
 class NewExcelLinkApi(APIView):
     # permission_classes = (IsAuthenticated,)
     # authentication_classes = (TokenAuthentication,)
+
+    def get_accessible_package(self, client_id):
+        print('clid= ', client_id)
+        client_obj = models.ClientModel.objects.filter(id = client_id)
+        package_li = client_obj[0].package.all()
+        res = []
+        for i in package_li:
+            res.append(i.id)
+        return res
+
     def get_associated_players(self,report_id):
         parent_node = models.NewReportModel.objects.get(id=report_id)
 
@@ -934,36 +944,45 @@ class NewExcelLinkApi(APIView):
         report_model_object = models.NewReportModel.objects.filter(report_name = report_name)[0]
         report_id = report_model_object.id
         print(report_name, report_id, client_id)
+        accessible_package_list  =self.get_accessible_package(client_id)
         # report_id = 1
         # check if client has access report_id if yes check which players he has access to. need to make check in both package a
         # qs = models.NewReportAccessModel.objects.filter(Q(client_id = client_id)|Q(package_id__in = accessible_package_list))
+        # lis  = []
+        # for i in qs:
+        #     lis.append(i.report_id.id)
 
         # check if client has access to report(which can be company)
+
+
         try:
             report_access_object = models.NewReportAccessModel.objects.filter(client_id = client_id, report_id = report_id)[0]
-            print('rao = ',report_access_object)
-            available_reports = list(models.NewReportAccessModel.objects.filter(client_id=client_id).values_list('report_id', flat=True))
-            print('available_reps=',available_reports)
-            # check if report is player
-            if report_access_object:
-                try:
-                    li = self.get_associated_players(report_id)
-                    intersection = list(set(li[1]) & set(available_reports))
+            # print('rao = ',report_access_object.players.all())
+            players = report_access_object.players.all()
+            names = [player.player_name for player in players]
+            company_list = names
+            # available_reports = list(models.NewReportAccessModel.objects.filter(client_id=client_id).values_list('report_id', flat=True))
+            # print('available_reps=',available_reports)
+            # # check if report is player
+            # if report_access_object:
+            #     try:
+            #         li = self.get_associated_players(report_id)
+            #         intersection = list(set(li[1]) & set(available_reports))
 
-                    print(intersection)
-                    names = list(models.NewReportModel.objects.filter(id__in = intersection).values_list('report_name', flat=True))
-                    print(names)
-                    print('li = ', li)
-                    if len(li[0])>0:
-                        qs = models.Player.objects.filter(player_name__in = names)
-                        print('qs=', qs)
-                        for i in qs:
-                            company_list.append(i.player_id)
-                    else:
-                        player_id = models.Player.objects.filter(player_name = report_name)[0].player_id
-                        company_list = [player_id]
-                except:
-                    company_list = []
+            #         print(intersection)
+            #         names = list(models.NewReportModel.objects.filter(id__in = intersection).values_list('report_name', flat=True))
+            #         print(names)
+            #         print('li = ', li)
+            #         if len(li[0])>0:
+            #             qs = models.Player.objects.filter(player_name__in = names)
+            #             print('qs=', qs)
+            #             for i in qs:
+            #                 company_list.append(i.player_id)
+            #         else:
+            #             player_id = models.Player.objects.filter(player_name = report_name)[0].player_id
+            #             company_list = [player_id]
+            #     except:
+            #         company_list = []
         except:
             company_list = []
         
@@ -1068,6 +1087,8 @@ class NewExcelLinkApi(APIView):
             ran_name2=rand_str()
             final_output_name = ran_name2+".xlsx"
             writer = pd.ExcelWriter(path+sheet_ran_name, engine='xlsxwriter')
+            disclaimer_df = pd.DataFrame()
+            disclaimer_df.to_excel(writer, sheet_name='Disclaimer', index=False)
             for i in range(len(li)):
                 df = pd.read_excel(li[i])
                 # Write the DataFrame to a sheet in the output Excel file
@@ -1075,7 +1096,9 @@ class NewExcelLinkApi(APIView):
             writer.save()
 
             wb = openpyxl.load_workbook(path+sheet_ran_name)
-            png_discl = os.getenv("images_path")+'disclaimer.png'
+            images_path =  os.getenv("images_path")
+            print(images_path)
+            png_discl = images_path+'disclaimer.png'
             discl = openpyxl.drawing.image.Image(png_discl)
             sheets = wb.sheetnames
             ws = wb[sheets[0]]
@@ -1226,8 +1249,8 @@ class NewReportAPI(ListCreateAPIView):
                 report_val = self.request.query_params['rep']
                 cache_key = generate_cache_key_report(client_id, report_val)
                 cached_response = cache.get(cache_key)
-                # if cached_response:
-                #     return cached_response
+                if cached_response:
+                    return cached_response
             accessible_package_list = self.get_accessible_package(client_id)
             qs = models.NewReportAccessModel.objects.filter(Q(client_id = client_id)|Q(package_id__in = accessible_package_list))
             li  = []
@@ -1247,8 +1270,9 @@ class NewReportAPI(ListCreateAPIView):
             # print(li)
             # res = tree_data
             res = sorted(tree_data, key=self.sort_nodes)
-            cache.set(cache_key, res, 60 * 60 * 2)
-            return JsonResponse(res, safe=False)
+            result = JsonResponse(res, safe=False)
+            cache.set(cache_key, result, 60 * 60 * 2)
+            return result
         tree_data = self.get_tree_data(root_nodes)
         res = tree_data
         return JsonResponse(res, safe=False)
@@ -1394,12 +1418,8 @@ class NewReportPagesLCView(ListCreateAPIView):
                     report_name = res[j].report_name
                     email = 'digital@redseerconsulting.com'
                     url = "https://login.microsoftonline.com/common/oauth2/token"
-                    # payload = "grant_type=password\r\n&username=1mg@redseerconsulting.com\r\n&password=Waj179490\r\n&client_id=a9826bb1-7b52-4b3f-80f2-2ffa4d1cd578\r\n&client_secret=cuV8Q~hl7__PcjsvYSxTDHraG4vcMMLTRQRtyceA\r\n&resource=https://analysis.windows.net/powerbi/api"
                     payload = 'grant_type=password\r\n&username=digital@beeroute.onmicrosoft.com\r\n&password=Redseer@123\r\n&client_id=48ac3ed4-da07-47b6-be7f-a606360f5b7f\r\n&client_secret=jMB8Q~EO1lS7Ix2nHfbP7i2Aw-hUMX0Ogdvw6btk\r\n&resource=https://analysis.windows.net/powerbi/api'
-                    # headers = {
-                    # 'Content-Type': 'application/x-www-form-urlencoded',
-                    # 'Cookie': 'fpc=Aus9rQPMtNtLkL7XzywalRLdloFgAQAAABHzetoOAAAA; stsservicecookie=estsfd; x-ms-gateway-slice=estsfd'
-                    # }
+
                     headers = {
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'Cookie': 'fpc=AkJd98RyXO9Ktl7yo8w_EIFa5k8pAQAAADjN_9sOAAAAO1-11QEAAACtzf_bDgAAAA; stsservicecookie=estsfd; x-ms-gateway-slice=estsfd'
@@ -1408,7 +1428,6 @@ class NewReportPagesLCView(ListCreateAPIView):
                     response = response.json()
                     access_token = response["access_token"]
 
-                    # workspace_url = "https://api.powerbi.com/v1.0/myorg/groups/67294232-0c81-43c2-a16d-22544a0a390b/reports/"
                     workspace_url = 'https://api.powerbi.com/v1.0/myorg/groups/bc31597a-f402-4f15-86d9-dfadbd9cc7a5/reports/'
                     workspace_payload={}
                     workspace_headers = {
@@ -1427,9 +1446,7 @@ class NewReportPagesLCView(ListCreateAPIView):
                             report_id = i['id']
                             report_url = i['embedUrl']
                             report_datasetId = i['datasetId']
-                    # print(report_id)
-                    # print('report_datasetid=',report_datasetId)
-                    # embed_url = f"https://api.powerbi.com/v1.0/myorg/groups/67294232-0c81-43c2-a16d-22544a0a390b/reports/{report_id}/GenerateToken"
+                  
                     embed_url = f"https://api.powerbi.com/v1.0/myorg/groups/bc31597a-f402-4f15-86d9-dfadbd9cc7a5/reports/{report_id}/GenerateToken"
                     embed_payload = json.dumps({
                     "accessLevel": "View",
