@@ -480,8 +480,8 @@ class MSAccessTokenAPI(CreateAPIView):
         response = requests.request("POST", url, headers=headers, data=payload)
         response = response.json()
         access_token = response["access_token"]
-
-        workspace_url = 'https://api.powerbi.com/v1.0/myorg/groups/bc31597a-f402-4f15-86d9-dfadbd9cc7a5/reports/'
+        group_id = os.getenv("group_id")
+        workspace_url = f'https://api.powerbi.com/v1.0/myorg/groups/{group_id}/reports/'
         workspace_payload={}
         workspace_headers = {
         'Authorization': f'Bearer {access_token}'
@@ -1427,8 +1427,9 @@ class NewReportPagesLCView(ListCreateAPIView):
                     response = requests.request("POST", url, headers=headers, data=payload)
                     response = response.json()
                     access_token = response["access_token"]
+                    group_id = os.getenv("group_id")
 
-                    workspace_url = 'https://api.powerbi.com/v1.0/myorg/groups/bc31597a-f402-4f15-86d9-dfadbd9cc7a5/reports/'
+                    workspace_url = f'https://api.powerbi.com/v1.0/myorg/groups/{group_id}/reports/'
                     workspace_payload={}
                     workspace_headers = {
                     'Authorization': f'Bearer {access_token}'
