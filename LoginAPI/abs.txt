@@ -1,0 +1,15 @@
+update report_pages_model set powerbi_report_id = 'eeaa19b8-1f91-4d76-a734-0b541cdea00e' where powerbi_report_id =  'efcac618-0e1a-4c7f-8e6c-850a686946df'; 
+update report_pages_model set powerbi_report_id = '52bf1ada-e3d3-40df-8598-1088da4d3590' where powerbi_report_id =  '12e70f51-de31-4b2c-8569-baf598d8a348'; 
+update report_pages_model set powerbi_report_id = 'eeb21e60-1f28-4f24-82ed-d60815073616' where powerbi_report_id =  '56e09f0f-0f8f-417d-af41-afa54aa6e673'; 
+update report_pages_model set powerbi_report_id = 'c0183180-a8ef-4f77-aafd-6c0b5bec326d' where powerbi_report_id =  '33fc23b1-b3d9-4685-9fcc-881d2cd4ca2c'; 
+update report_pages_model set powerbi_report_id = 'e43bcd8d-6e41-40cb-9b60-b693b09125c3' where powerbi_report_id =  'e89fce8f-99f3-4b37-8d70-1d297653c850'; 
+update report_pages_model set powerbi_report_id = '80a13480-6dc9-44af-a795-115ed86f6ed2' where powerbi_report_id =  '2d3846fd-dc5c-4a80-9336-0c5e4d7ff055'; 
+update report_pages_model set powerbi_report_id = '50534335-792a-497d-ac1e-3853b1127d14' where powerbi_report_id =  '2d83f121-d164-465a-abb4-111fd269263f'; 
+update report_pages_model set powerbi_report_id = 'c3fa81c3-03b5-4354-b319-8a19d53cd0fb' where powerbi_report_id =  '7b6a1e78-6571-4f15-8c19-15f7faa0528a'; 
+
+
+
+'4b80a7e9-eba7-4a28-9821-3030c136267d'
+'8dbb7a91-b438-43a8-ab4e-df0663264f4f'
+'eaa8035b-feef-4b8c-b9a5-dbcb7c778a4f'
+
